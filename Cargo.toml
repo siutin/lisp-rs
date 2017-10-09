@@ -1,0 +1,6 @@
+[package]
+name = "scheme-rs"
+version = "0.1.0"
+authors = ["osiutino <osiutino@gmail.com>"]
+
+[dependencies]
