@@ -1,6 +1,8 @@
 #[derive(Debug)]
 enum Node {
-	Value(String),
+	Fixnum(u32),
+	Float(f64),
+	Text(String),
 	Children(Vec<Node>)
 }
 
@@ -72,9 +74,23 @@ fn read_from_tokens(mut tokens:Vec<String>) -> Result<Node, &'static str> {
 		} else if token == ")" {
 			Err("unexpected )")
 		} else {
-			Ok(Node::Value(token))
+			Ok(atom(&token))
 		}
 	} else {
 		Err("unexpected EOF while reading")
 	}
+}
+
+fn atom(token: &str) -> Node {
+	let to_int = token.parse::<u32>();
+	let to_float = token.parse::<f64>();
+
+	if to_int.is_ok() {
+		Node::Fixnum(to_int.unwrap_or_default())
+	} else if to_float.is_ok() {
+		Node::Float(to_float.unwrap_or_default())
+	} else {
+		Node::Text(token.to_string())
+	}
+
 }
