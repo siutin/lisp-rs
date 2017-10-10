@@ -18,7 +18,7 @@ fn main() {
 	println!("program: {}", program);
 	let tokens = tokenize(program);
 	println!("tokens: {:?}", tokens);
-	let ast = read_from_tokens(tokens.clone(), 0);
+	let ast = read_from_tokens(tokens.clone());
 	println!("ast: {:?}", ast);
 }
 
@@ -60,32 +60,24 @@ fn tokenize(program: &str) -> Vec<String>
 	ss
 }
 
-fn read_from_tokens(mut tokens:Vec<String>, depth: i32) -> Result<ReadFromTokenResult, &'static str> {
+fn read_from_tokens(mut tokens:Vec<String>) -> Result<ReadFromTokenResult, &'static str> {
 	if tokens.len() > 0 {
 		let mut token = tokens.remove(0);
-
-		// println!("");
-		// println!("tokens={:?}", tokens);
-		// println!("token={:?}", token.clone());
 
 		if token == "(" {
 			let mut vec:Vec<AST> = vec![];
 			let mut tmp_tokens = tokens.clone();
 
-			println!("{} before tmp_tokens: {:?}", depth, tmp_tokens);
-
 			while tmp_tokens[0] != ")" {
-				match read_from_tokens(tmp_tokens.clone(), depth + 1) {
+				match read_from_tokens(tmp_tokens.clone()) {
 					Ok(mut data) => {
 						vec.push(data.result);
 						tmp_tokens = data.remain.clone();
-						println!("{} nested {:?}", depth, data.remain);
 					},
 					Err(e) => { return Err(e) }
 				}
 			}
 			tmp_tokens.remove(0);
-			println!("{} after tmp_tokens: {:?}", depth, tmp_tokens);
 			Ok(
 				ReadFromTokenResult {
 					remain: tmp_tokens,
@@ -95,7 +87,6 @@ fn read_from_tokens(mut tokens:Vec<String>, depth: i32) -> Result<ReadFromTokenR
 		} else if token == ")" {
 			Err("unexpected )")
 		} else {
-			println!("{} symbol", depth);
 			Ok(
 				ReadFromTokenResult {
 					remain: tokens,
