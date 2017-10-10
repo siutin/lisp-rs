@@ -1,9 +1,9 @@
 #[derive(Debug)]
-enum Node {
+enum AST {
 	Fixnum(u32),
 	Float(f64),
-	Text(String),
-	Children(Vec<Node>)
+	Symbol(String),
+	Children(Vec<AST>)
 }
 
 fn main() {
@@ -54,14 +54,14 @@ fn tokenize(program: &str) -> Vec<String>
 	ss
 }
 
-fn read_from_tokens(mut tokens:Vec<String>) -> Result<Node, &'static str> {
+fn read_from_tokens(mut tokens:Vec<String>) -> Result<AST, &'static str> {
 	if tokens.len() > 0 {
 		let mut tokens2 = tokens.clone();
 		let mut token = tokens2.remove(0);
 		// println!("{:?}", token.clone());
 		// println!("{:?}", tokens2.clone());
 		if token == "(" {
-			let mut vec:Vec<Node> = vec![];
+			let mut vec:Vec<AST> = vec![];
 			while tokens2[0] != ")" {
 				match read_from_tokens(tokens2.clone()) {
 					Ok(mut node) => vec.push(node),
@@ -70,7 +70,7 @@ fn read_from_tokens(mut tokens:Vec<String>) -> Result<Node, &'static str> {
 				tokens2.remove(0);
 			}
 			// tokens2.remove(0); // pop off ')'
-			Ok(Node::Children(vec))
+			Ok(AST::Children(vec))
 		} else if token == ")" {
 			Err("unexpected )")
 		} else {
@@ -81,16 +81,15 @@ fn read_from_tokens(mut tokens:Vec<String>) -> Result<Node, &'static str> {
 	}
 }
 
-fn atom(token: &str) -> Node {
+fn atom(token: &str) -> AST {
 	let to_int = token.parse::<u32>();
 	let to_float = token.parse::<f64>();
 
 	if to_int.is_ok() {
-		Node::Fixnum(to_int.unwrap_or_default())
+		AST::Fixnum(to_int.unwrap_or_default())
 	} else if to_float.is_ok() {
-		Node::Float(to_float.unwrap_or_default())
+		AST::Float(to_float.unwrap_or_default())
 	} else {
-		Node::Text(token.to_string())
+		AST::Symbol(token.to_string())
 	}
-
 }
