@@ -6,13 +6,19 @@ enum AST {
 	Children(Vec<AST>)
 }
 
+#[derive(Debug)]
+struct ReadFromTokenResult {
+	remain: Vec<String>,
+	result: AST
+}
+
 fn main() {
 	// println!("Hello, world!");
 	let program = "(begin (define r 10) (* pi (* r r)))";
 	println!("program: {}", program);
 	let tokens = tokenize(program);
 	println!("tokens: {:?}", tokens);
-	let ast = read_from_tokens(tokens);
+	let ast = read_from_tokens(tokens.clone(), 0);
 	println!("ast: {:?}", ast);
 }
 
@@ -54,27 +60,48 @@ fn tokenize(program: &str) -> Vec<String>
 	ss
 }
 
-fn read_from_tokens(mut tokens:Vec<String>) -> Result<AST, &'static str> {
+fn read_from_tokens(mut tokens:Vec<String>, depth: i32) -> Result<ReadFromTokenResult, &'static str> {
 	if tokens.len() > 0 {
-		let mut tokens2 = tokens.clone();
-		let mut token = tokens2.remove(0);
-		// println!("{:?}", token.clone());
-		// println!("{:?}", tokens2.clone());
+		let mut token = tokens.remove(0);
+
+		// println!("");
+		// println!("tokens={:?}", tokens);
+		// println!("token={:?}", token.clone());
+
 		if token == "(" {
 			let mut vec:Vec<AST> = vec![];
-			while tokens2[0] != ")" {
-				match read_from_tokens(tokens2.clone()) {
-					Ok(mut node) => vec.push(node),
+			let mut tmp_tokens = tokens.clone();
+
+			println!("{} before tmp_tokens: {:?}", depth, tmp_tokens);
+
+			while tmp_tokens[0] != ")" {
+				match read_from_tokens(tmp_tokens.clone(), depth + 1) {
+					Ok(mut data) => {
+						vec.push(data.result);
+						tmp_tokens = data.remain.clone();
+						println!("{} nested {:?}", depth, data.remain);
+					},
 					Err(e) => { return Err(e) }
 				}
-				tokens2.remove(0);
 			}
-			// tokens2.remove(0); // pop off ')'
-			Ok(AST::Children(vec))
+			tmp_tokens.remove(0);
+			println!("{} after tmp_tokens: {:?}", depth, tmp_tokens);
+			Ok(
+				ReadFromTokenResult {
+					remain: tmp_tokens,
+					result: AST::Children(vec)
+				}
+			)
 		} else if token == ")" {
 			Err("unexpected )")
 		} else {
-			Ok(atom(&token))
+			println!("{} symbol", depth);
+			Ok(
+				ReadFromTokenResult {
+					remain: tokens,
+					result: atom(&token)
+				}
+			)
 		}
 	} else {
 		Err("unexpected EOF while reading")
@@ -93,3 +120,15 @@ fn atom(token: &str) -> AST {
 		AST::Symbol(token.to_string())
 	}
 }
+
+// fn eval(ast: AST) -> Result<AST, &'static str> {
+// 	match ast {
+// 	AST::Symbol(s) => {
+// 		Ok()
+// 	},
+// 	AST::Fixnum(n) => {},
+// 	AST::Float(f) => {},
+// 	AST::Children(l) => {
+//
+// 	}
+// }
