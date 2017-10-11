@@ -133,20 +133,19 @@ fn atom(token: &str) -> AST {
 	}
 }
 
-fn eval(ast_option: Option<AST>, mut env: &RefCell<HashMap<String, Varible>>) -> Result<Option<AST>, &'static str> {
+fn eval(ast_option: Option<AST>, env: &RefCell<HashMap<String, Varible>>) -> Result<Option<AST>, &'static str> {
 	match ast_option {
 		Some(ast) => {
+			println!("{:?}", ast);
 			if let AST::Children(list) = ast {
-					let solved_list: Vec<Option<AST>> = {
-						let has_children = list.iter().any(|x| if let AST::Children(ref l) = *x { true } else { false });
-						if has_children {
-							list.into_iter().map(|x| {
-								return eval(Some(x), &env).unwrap();
-							}).collect::<_>()
-						} else {
-							list.into_iter().map(|x| Some(x)).collect::<_>()
-						}
-					};
+				let solved_list: Vec<Option<AST>> = {
+					let has_children = list.iter().any(|x| if let AST::Children(_) = *x { true } else { false });
+					if has_children {
+						list.into_iter().map(|x| eval(Some(x), &env).unwrap() ).collect::<_>()
+					} else {
+						list.into_iter().map(|x| Some(x)).collect::<_>()
+					}
+				};
 
 				if let Some(AST::Symbol(ref s0)) = solved_list[0] {
 					if s0 == "define" {
@@ -155,7 +154,7 @@ fn eval(ast_option: Option<AST>, mut env: &RefCell<HashMap<String, Varible>>) ->
 								Some(Some(AST::Fixnum(i))) => { env.borrow_mut().insert(s1.clone(), Varible::Fixnum(i)); },
 								Some(Some(AST::Float(f))) => { env.borrow_mut().insert(s1.clone(), Varible::Float(f)); },
 								Some(Some(AST::Symbol(ref s))) => {env.borrow_mut().insert(s1.clone(), Varible::Symbol(s.clone())); },
-								Some(Some(AST::Children(ref l))) => { return Err("should not reach here"); },
+								Some(Some(AST::Children(_))) => { return Err("should not reach here"); },
 								Some(None) | None => { }
 							};
 							return Ok(None)
@@ -163,15 +162,15 @@ fn eval(ast_option: Option<AST>, mut env: &RefCell<HashMap<String, Varible>>) ->
 							return Err("definition name must be a symbol");
 						}
 					} else {
-						println!("{:?}", env.borrow());
+						// println!("{:?}", env.borrow());
 						Ok(solved_list[0].clone())
 					}
 				} else {
-					println!("{:?}", env.borrow());
+					// println!("{:?}", env.borrow());
 					Ok(solved_list[0].clone())
 				}
 			} else {
-				println!("{:?}", env.borrow());
+				// println!("{:?}", env.borrow());
 				Ok(Some(ast))
 			}
 		},
