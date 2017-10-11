@@ -1,7 +1,5 @@
 use std::collections::HashMap;
-use std::cell::{RefCell, RefMut};
-use std::borrow::BorrowMut;
-use std::sync::{Arc};
+use std::cell::RefCell;
 
 #[derive(Clone, Debug)]
 enum AST {
@@ -45,17 +43,14 @@ fn main() {
 
 fn tokenize(program: &str) -> Vec<String>
 {
-	let iterator = program.chars();
-	let iterator1 = iterator.clone();
-	let mut iterator2 = iterator1.clone();
-
-	let count = iterator1.count();
+	let iterator = RefCell::new(program.chars());
+	let count = iterator.borrow().clone().count();
 	let mut vec:Vec<char> = Vec::with_capacity(count);
 
 	// println!("{:?}", iterator2);
 
 	loop {
-		match iterator2.next() {
+		match iterator.borrow_mut().next() {
 			Some(x) => {
 				if x == '(' {
 					vec.push(' ');
@@ -83,7 +78,7 @@ fn tokenize(program: &str) -> Vec<String>
 
 fn read_from_tokens(mut tokens:Vec<String>) -> Result<ReadFromTokenResult, &'static str> {
 	if tokens.len() > 0 {
-		let mut token = tokens.remove(0);
+		let token = tokens.remove(0);
 
 		if token == "(" {
 			let mut vec:Vec<AST> = vec![];
@@ -91,7 +86,7 @@ fn read_from_tokens(mut tokens:Vec<String>) -> Result<ReadFromTokenResult, &'sta
 
 			while tmp_tokens[0] != ")" {
 				match read_from_tokens(tmp_tokens.clone()) {
-					Ok(mut data) => {
+					Ok(data) => {
 						vec.push(data.result);
 						tmp_tokens = data.remain.clone();
 					},
