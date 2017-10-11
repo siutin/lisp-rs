@@ -34,7 +34,7 @@ fn main() {
 	println!("ast: {:?}", ast);
 	if ast.is_ok() {
 		let env = RefCell::new(HashMap::new());
-		let p = eval(ast.unwrap().result, &env);
+		let p = eval(Some(ast.unwrap().result), &env);
 		match p {
 			Ok(r) => println!("p: {:?}", r),
 			Err(e) => panic!("ERROR: {}", e)
@@ -133,36 +133,51 @@ fn atom(token: &str) -> AST {
 	}
 }
 
-fn eval(ast: AST, mut env: &RefCell<HashMap<String, Varible>>) -> Result<AST, &'static str> {
-	if let AST::Children(list) = ast {
-			let solved_list = {
-				let has_children = list.iter().any(|x| if let AST::Children(ref l) = *x { true } else { false });
-				if has_children {
-					list.into_iter().map(|x| {
-						return eval(x, &env).unwrap();
-					}).collect::<Vec<AST>>()
-				} else {
-					list
-				}
-			};
-
-		if let AST::Symbol(ref s0) = solved_list[0] {
-			if s0 == "define" {
-				if let AST::Symbol(ref s1) = solved_list[1].clone() {
-					match solved_list[2] {
-						AST::Fixnum(i) => env.borrow_mut().insert(s1.clone(), Varible::Fixnum(i)),
-						AST::Float(f) => env.borrow_mut().insert(s1.clone(), Varible::Float(f)),
-						AST::Symbol(ref s) => env.borrow_mut().insert(s1.clone(), Varible::Symbol(s.clone())),
-						AST::Children(ref l) => { return Err("should not reach here"); }
+fn eval(ast_option: Option<AST>, mut env: &RefCell<HashMap<String, Varible>>) -> Result<Option<AST>, &'static str> {
+	match ast_option {
+		Some(ast) => {
+			if let AST::Children(list) = ast {
+					let solved_list: Vec<Option<AST>> = {
+						let has_children = list.iter().any(|x| if let AST::Children(ref l) = *x { true } else { false });
+						if has_children {
+							list.into_iter().map(|x| {
+								return eval(Some(x), &env).unwrap();
+							}).collect::<_>()
+						} else {
+							list.into_iter().map(|x| Some(x)).collect::<_>()
+						}
 					};
-				} else {
-					return Err("definition name must be a symbol");
-				}
-			}
-		}
 
-		Ok(solved_list[0].clone())
-	} else {
-		Ok(ast)
+				if let Some(AST::Symbol(ref s0)) = solved_list[0] {
+					if s0 == "define" {
+						if let Some(AST::Symbol(ref s1)) = solved_list[1].clone() {
+							match Some(solved_list[2].clone()) {
+								Some(Some(AST::Fixnum(i))) => { env.borrow_mut().insert(s1.clone(), Varible::Fixnum(i)); },
+								Some(Some(AST::Float(f))) => { env.borrow_mut().insert(s1.clone(), Varible::Float(f)); },
+								Some(Some(AST::Symbol(ref s))) => {env.borrow_mut().insert(s1.clone(), Varible::Symbol(s.clone())); },
+								Some(Some(AST::Children(ref l))) => { return Err("should not reach here"); },
+								Some(None) | None => { }
+							};
+							return Ok(None)
+						} else {
+							return Err("definition name must be a symbol");
+						}
+					} else {
+						println!("{:?}", env.borrow());
+						Ok(solved_list[0].clone())
+					}
+				} else {
+					println!("{:?}", env.borrow());
+					Ok(solved_list[0].clone())
+				}
+			} else {
+				println!("{:?}", env.borrow());
+				Ok(Some(ast))
+			}
+		},
+		None => {
+			Ok(None)
+  		}
 	}
+
 }
