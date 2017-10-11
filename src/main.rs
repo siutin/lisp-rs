@@ -1,4 +1,9 @@
-#[derive(Debug)]
+use std::collections::HashMap;
+use std::cell::{RefCell, RefMut};
+use std::borrow::BorrowMut;
+use std::sync::{Arc};
+
+#[derive(Clone, Debug)]
 enum AST {
 	Fixnum(u32),
 	Float(f64),
@@ -12,6 +17,13 @@ struct ReadFromTokenResult {
 	result: AST
 }
 
+#[derive(Debug)]
+enum Varible {
+	Fixnum(u32),
+	Float(f64),
+	Symbol(String)
+}
+
 fn main() {
 	// println!("Hello, world!");
 	let program = "(begin (define r 10) (* pi (* r r)))";
@@ -20,6 +32,15 @@ fn main() {
 	println!("tokens: {:?}", tokens);
 	let ast = read_from_tokens(tokens.clone());
 	println!("ast: {:?}", ast);
+	if ast.is_ok() {
+		let env = RefCell::new(HashMap::new());
+		let p = eval(ast.unwrap().result, &env);
+		match p {
+			Ok(r) => println!("p: {:?}", r),
+			Err(e) => panic!("ERROR: {}", e)
+		}
+	}
+
 }
 
 fn tokenize(program: &str) -> Vec<String>
@@ -112,14 +133,36 @@ fn atom(token: &str) -> AST {
 	}
 }
 
-// fn eval(ast: AST) -> Result<AST, &'static str> {
-// 	match ast {
-// 	AST::Symbol(s) => {
-// 		Ok()
-// 	},
-// 	AST::Fixnum(n) => {},
-// 	AST::Float(f) => {},
-// 	AST::Children(l) => {
-//
-// 	}
-// }
+fn eval(ast: AST, mut env: &RefCell<HashMap<String, Varible>>) -> Result<AST, &'static str> {
+	if let AST::Children(list) = ast {
+			let solved_list = {
+				let has_children = list.iter().any(|x| if let AST::Children(ref l) = *x { true } else { false });
+				if has_children {
+					list.into_iter().map(|x| {
+						return eval(x, &env).unwrap();
+					}).collect::<Vec<AST>>()
+				} else {
+					list
+				}
+			};
+
+		if let AST::Symbol(ref s0) = solved_list[0] {
+			if s0 == "define" {
+				if let AST::Symbol(ref s1) = solved_list[1].clone() {
+					match solved_list[2] {
+						AST::Fixnum(i) => env.borrow_mut().insert(s1.clone(), Varible::Fixnum(i)),
+						AST::Float(f) => env.borrow_mut().insert(s1.clone(), Varible::Float(f)),
+						AST::Symbol(ref s) => env.borrow_mut().insert(s1.clone(), Varible::Symbol(s.clone())),
+						AST::Children(ref l) => { return Err("should not reach here"); }
+					};
+				} else {
+					return Err("definition name must be a symbol");
+				}
+			}
+		}
+
+		Ok(solved_list[0].clone())
+	} else {
+		Ok(ast)
+	}
+}
