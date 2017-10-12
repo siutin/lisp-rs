@@ -25,7 +25,7 @@ enum Varible {
 #[derive(Debug)]
 struct Env<'a> {
 	local: &'a RefCell<HashMap<String, Varible>>,
-	parents: &'a RefCell<Vec<Env<'a>>>
+	parent: Option<Box<RefCell<Env<'a>>>>
 }
 
 impl <'a> Env<'a> {
@@ -36,7 +36,13 @@ impl <'a> Env<'a> {
 			Some(&Varible::Float(f)) => Some(Varible::Float(f)),
 			Some(&Varible::Symbol(ref ss)) =>Some(Varible::Symbol(ss.clone())),
 			None => {
-				None
+				match self.parent {
+					Some(ref some_parent) => {
+						let mut parent_borrow = some_parent.borrow_mut();
+						parent_borrow.get(key)
+					},
+					None => None
+				}
 			}
 		}
 	}
@@ -51,12 +57,12 @@ fn main() {
 	let ast = read_from_tokens(tokens.clone());
 	println!("ast: {:?}", ast);
 	if ast.is_ok() {
-		let local = RefCell::new(HashMap::new());
-		let parents = RefCell::new(vec![]);
+		let global = RefCell::new(HashMap::new());
+
 		let env = RefCell::new(
 			Env {
-				local: &local,
-				parents: &parents
+				local: &global,
+				parent: None
 			}
 		);
 		let p = eval(Some(ast.unwrap().result), &env);
