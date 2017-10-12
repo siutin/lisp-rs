@@ -59,6 +59,10 @@ fn main() {
 	if ast.is_ok() {
 		let global = RefCell::new(HashMap::new());
 
+		global.borrow_mut().insert("begin".to_string(), Varible::Fixnum(1));
+		global.borrow_mut().insert("*".to_string(), Varible::Fixnum(2));
+		global.borrow_mut().insert("pi".to_string(), Varible::Float(3.141592654));
+
 		let env = RefCell::new(
 			Env {
 				local: &global,
