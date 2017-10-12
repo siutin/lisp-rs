@@ -22,6 +22,26 @@ enum Varible {
 	Symbol(String)
 }
 
+#[derive(Debug)]
+struct Env<'a> {
+	local: &'a RefCell<HashMap<String, Varible>>,
+	parents: &'a RefCell<Vec<Env<'a>>>
+}
+
+impl <'a> Env<'a> {
+	fn get(&mut self, key: &String) -> Option<Varible> {
+		let local_borrow = self.local.borrow_mut();
+		match local_borrow.get(key) {
+			Some(&Varible::Fixnum(i)) => Some(Varible::Fixnum(i)),
+			Some(&Varible::Float(f)) => Some(Varible::Float(f)),
+			Some(&Varible::Symbol(ref ss)) =>Some(Varible::Symbol(ss.clone())),
+			None => {
+				None
+			}
+		}
+	}
+}
+
 fn main() {
 	// println!("Hello, world!");
 	let program = "(begin (define r 10) (* pi (* r r)))";
@@ -31,7 +51,14 @@ fn main() {
 	let ast = read_from_tokens(tokens.clone());
 	println!("ast: {:?}", ast);
 	if ast.is_ok() {
-		let env = RefCell::new(HashMap::new());
+		let local = RefCell::new(HashMap::new());
+		let parents = RefCell::new(vec![]);
+		let env = RefCell::new(
+			Env {
+				local: &local,
+				parents: &parents
+			}
+		);
 		let p = eval(Some(ast.unwrap().result), &env);
 		match p {
 			Ok(r) => println!("p: {:?}", r),
@@ -67,7 +94,6 @@ fn tokenize(program: &str) -> Vec<String>
 			None => { break; }
 		}
 	}
-
 	// println!("vec count: {}", (&mut vec).len());
 	// println!("{:?}", vec);
 
@@ -128,11 +154,20 @@ fn atom(token: &str) -> AST {
 	}
 }
 
-fn eval(ast_option: Option<AST>, env: &RefCell<HashMap<String, Varible>>) -> Result<Option<AST>, &'static str> {
+fn eval(ast_option: Option<AST>, env: &RefCell<Env>) -> Result<Option<AST>, &'static str> {
 	match ast_option {
 		Some(ast) => {
 			println!("{:?}", ast);
-			if let AST::Children(list) = ast {
+
+			if let AST::Symbol(s) = ast {
+				match env.borrow_mut().get(&s) {
+					Some(Varible::Fixnum(i)) => Ok(Some(AST::Fixnum(i))),
+					Some(Varible::Float(f)) => Ok(Some(AST::Float(f))),
+					Some(Varible::Symbol(ref ss)) => Ok(Some(AST::Symbol(ss.clone()))),
+					None => panic!("'{}' is not defined", s.to_string())
+				}
+			}
+			else if let AST::Children(list) = ast {
 				let solved_list: Vec<Option<AST>> = {
 					let has_children = list.iter().any(|x| if let AST::Children(_) = *x { true } else { false });
 					if has_children {
@@ -146,9 +181,9 @@ fn eval(ast_option: Option<AST>, env: &RefCell<HashMap<String, Varible>>) -> Res
 					if s0 == "define" {
 						if let Some(AST::Symbol(ref s1)) = solved_list[1].clone() {
 							match Some(solved_list[2].clone()) {
-								Some(Some(AST::Fixnum(i))) => { env.borrow_mut().insert(s1.clone(), Varible::Fixnum(i)); },
-								Some(Some(AST::Float(f))) => { env.borrow_mut().insert(s1.clone(), Varible::Float(f)); },
-								Some(Some(AST::Symbol(ref s))) => {env.borrow_mut().insert(s1.clone(), Varible::Symbol(s.clone())); },
+								Some(Some(AST::Fixnum(i))) => { env.borrow_mut().local.borrow_mut().insert(s1.clone(), Varible::Fixnum(i)); },
+								Some(Some(AST::Float(f))) => { env.borrow_mut().local.borrow_mut().insert(s1.clone(), Varible::Float(f)); },
+								Some(Some(AST::Symbol(ref s))) => {env.borrow_mut().local.borrow_mut().insert(s1.clone(), Varible::Symbol(s.clone())); },
 								Some(Some(AST::Children(_))) => { return Err("should not reach here"); },
 								Some(None) | None => { }
 							};
