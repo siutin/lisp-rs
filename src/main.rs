@@ -16,7 +16,7 @@ struct ReadFromTokenResult {
 }
 
 #[derive(Debug)]
-enum Varible {
+enum DataType {
 	Fixnum(u32),
 	Float(f64),
 	Symbol(String)
@@ -24,17 +24,17 @@ enum Varible {
 
 #[derive(Debug)]
 struct Env<'a> {
-	local: &'a RefCell<HashMap<String, Varible>>,
+	local: &'a RefCell<HashMap<String, DataType>>,
 	parent: Option<Box<RefCell<Env<'a>>>>
 }
 
 impl <'a> Env<'a> {
-	fn get(&mut self, key: &String) -> Option<Varible> {
+	fn get(&mut self, key: &String) -> Option<DataType> {
 		let local_borrow = self.local.borrow_mut();
 		match local_borrow.get(key) {
-			Some(&Varible::Fixnum(i)) => Some(Varible::Fixnum(i)),
-			Some(&Varible::Float(f)) => Some(Varible::Float(f)),
-			Some(&Varible::Symbol(ref ss)) =>Some(Varible::Symbol(ss.clone())),
+			Some(&DataType::Fixnum(i)) => Some(DataType::Fixnum(i)),
+			Some(&DataType::Float(f)) => Some(DataType::Float(f)),
+			Some(&DataType::Symbol(ref ss)) =>Some(DataType::Symbol(ss.clone())),
 			None => {
 				match self.parent {
 					Some(ref some_parent) => {
@@ -59,9 +59,9 @@ fn main() {
 	if ast.is_ok() {
 		let global = RefCell::new(HashMap::new());
 
-		global.borrow_mut().insert("begin".to_string(), Varible::Fixnum(1));
-		global.borrow_mut().insert("*".to_string(), Varible::Fixnum(2));
-		global.borrow_mut().insert("pi".to_string(), Varible::Float(3.141592654));
+		global.borrow_mut().insert("begin".to_string(), DataType::Fixnum(1));
+		global.borrow_mut().insert("*".to_string(), DataType::Fixnum(2));
+		global.borrow_mut().insert("pi".to_string(), DataType::Float(3.141592654));
 
 		let env = RefCell::new(
 			Env {
@@ -171,9 +171,9 @@ fn eval(ast_option: Option<AST>, env: &RefCell<Env>) -> Result<Option<AST>, &'st
 
 			if let AST::Symbol(s) = ast {
 				match env.borrow_mut().get(&s) {
-					Some(Varible::Fixnum(i)) => Ok(Some(AST::Fixnum(i))),
-					Some(Varible::Float(f)) => Ok(Some(AST::Float(f))),
-					Some(Varible::Symbol(ref ss)) => Ok(Some(AST::Symbol(ss.clone()))),
+					Some(DataType::Fixnum(i)) => Ok(Some(AST::Fixnum(i))),
+					Some(DataType::Float(f)) => Ok(Some(AST::Float(f))),
+					Some(DataType::Symbol(ref ss)) => Ok(Some(AST::Symbol(ss.clone()))),
 					None => panic!("'{}' is not defined", s.to_string())
 				}
 			}
@@ -191,9 +191,9 @@ fn eval(ast_option: Option<AST>, env: &RefCell<Env>) -> Result<Option<AST>, &'st
 					if s0 == "define" {
 						if let Some(AST::Symbol(ref s1)) = solved_list[1].clone() {
 							match Some(solved_list[2].clone()) {
-								Some(Some(AST::Fixnum(i))) => { env.borrow_mut().local.borrow_mut().insert(s1.clone(), Varible::Fixnum(i)); },
-								Some(Some(AST::Float(f))) => { env.borrow_mut().local.borrow_mut().insert(s1.clone(), Varible::Float(f)); },
-								Some(Some(AST::Symbol(ref s))) => {env.borrow_mut().local.borrow_mut().insert(s1.clone(), Varible::Symbol(s.clone())); },
+								Some(Some(AST::Fixnum(i))) => { env.borrow_mut().local.borrow_mut().insert(s1.clone(), DataType::Fixnum(i)); },
+								Some(Some(AST::Float(f))) => { env.borrow_mut().local.borrow_mut().insert(s1.clone(), DataType::Float(f)); },
+								Some(Some(AST::Symbol(ref s))) => {env.borrow_mut().local.borrow_mut().insert(s1.clone(), DataType::Symbol(s.clone())); },
 								Some(Some(AST::Children(_))) => { return Err("should not reach here"); },
 								Some(None) | None => { }
 							};
