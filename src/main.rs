@@ -3,7 +3,7 @@ use std::cell::RefCell;
 
 #[derive(Clone, Debug)]
 enum AST {
-	Fixnum(u64),
+	Integer(u64),
 	Float(f64),
 	Symbol(String),
 	Children(Vec<AST>)
@@ -17,7 +17,7 @@ struct ReadFromTokenResult {
 
 #[derive(Debug)]
 enum DataType {
-	Fixnum(u64),
+	Integer(u64),
 	Float(f64),
 	Symbol(String)
 }
@@ -32,7 +32,7 @@ impl <'a> Env<'a> {
 	fn get(&mut self, key: &String) -> Option<DataType> {
 		let local_borrow = self.local.borrow_mut();
 		match local_borrow.get(key) {
-			Some(&DataType::Fixnum(i)) => Some(DataType::Fixnum(i)),
+			Some(&DataType::Integer(i)) => Some(DataType::Integer(i)),
 			Some(&DataType::Float(f)) => Some(DataType::Float(f)),
 			Some(&DataType::Symbol(ref ss)) =>Some(DataType::Symbol(ss.clone())),
 			None => {
@@ -59,8 +59,8 @@ fn main() {
 	if ast.is_ok() {
 		let global = RefCell::new(HashMap::new());
 
-		global.borrow_mut().insert("begin".to_string(), DataType::Fixnum(1));
-		global.borrow_mut().insert("*".to_string(), DataType::Fixnum(2));
+		global.borrow_mut().insert("begin".to_string(), DataType::Integer(1));
+		global.borrow_mut().insert("*".to_string(), DataType::Integer(2));
 		global.borrow_mut().insert("pi".to_string(), DataType::Float(3.141592654));
 
 		let env = RefCell::new(
@@ -156,7 +156,7 @@ fn atom(token: &str) -> AST {
 	let to_float = token.parse::<f64>();
 
 	if to_int.is_ok() {
-		AST::Fixnum(to_int.unwrap_or_default())
+		AST::Integer(to_int.unwrap_or_default())
 	} else if to_float.is_ok() {
 		AST::Float(to_float.unwrap_or_default())
 	} else {
@@ -171,7 +171,7 @@ fn eval(ast_option: Option<AST>, env: &RefCell<Env>) -> Result<Option<AST>, &'st
 
 			if let AST::Symbol(s) = ast {
 				match env.borrow_mut().get(&s) {
-					Some(DataType::Fixnum(i)) => Ok(Some(AST::Fixnum(i))),
+					Some(DataType::Integer(i)) => Ok(Some(AST::Integer(i))),
 					Some(DataType::Float(f)) => Ok(Some(AST::Float(f))),
 					Some(DataType::Symbol(ref ss)) => Ok(Some(AST::Symbol(ss.clone()))),
 					None => panic!("'{}' is not defined", s.to_string())
@@ -191,7 +191,7 @@ fn eval(ast_option: Option<AST>, env: &RefCell<Env>) -> Result<Option<AST>, &'st
 					if s0 == "define" {
 						if let Some(AST::Symbol(ref s1)) = solved_list[1].clone() {
 							match Some(solved_list[2].clone()) {
-								Some(Some(AST::Fixnum(i))) => { env.borrow_mut().local.borrow_mut().insert(s1.clone(), DataType::Fixnum(i)); },
+								Some(Some(AST::Integer(i))) => { env.borrow_mut().local.borrow_mut().insert(s1.clone(), DataType::Integer(i)); },
 								Some(Some(AST::Float(f))) => { env.borrow_mut().local.borrow_mut().insert(s1.clone(), DataType::Float(f)); },
 								Some(Some(AST::Symbol(ref s))) => {env.borrow_mut().local.borrow_mut().insert(s1.clone(), DataType::Symbol(s.clone())); },
 								Some(Some(AST::Children(_))) => { return Err("should not reach here"); },
