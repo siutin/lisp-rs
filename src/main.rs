@@ -80,14 +80,14 @@ fn main() {
 
 fn tokenize(program: &str) -> Vec<String>
 {
-	let iterator = RefCell::new(program.chars());
-	let count = iterator.borrow().clone().count();
+	let mut iterator = Box::new(program.chars());
+	let count = iterator.clone().count();
 	let mut vec:Vec<char> = Vec::with_capacity(count);
 
 	// println!("{:?}", iterator2);
 
 	loop {
-		match iterator.borrow_mut().next() {
+		match iterator.next() {
 			Some(x) => {
 				if x == '(' {
 					vec.push(' ');
