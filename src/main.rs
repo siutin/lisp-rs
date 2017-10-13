@@ -3,7 +3,7 @@ use std::cell::RefCell;
 
 #[derive(Clone, Debug)]
 enum AST {
-	Fixnum(u32),
+	Fixnum(u64),
 	Float(f64),
 	Symbol(String),
 	Children(Vec<AST>)
@@ -17,7 +17,7 @@ struct ReadFromTokenResult {
 
 #[derive(Debug)]
 enum DataType {
-	Fixnum(u32),
+	Fixnum(u64),
 	Float(f64),
 	Symbol(String)
 }
@@ -152,7 +152,7 @@ fn read_from_tokens(mut tokens:Vec<String>) -> Result<ReadFromTokenResult, &'sta
 }
 
 fn atom(token: &str) -> AST {
-	let to_int = token.parse::<u32>();
+	let to_int = token.parse::<u64>();
 	let to_float = token.parse::<f64>();
 
 	if to_int.is_ok() {
