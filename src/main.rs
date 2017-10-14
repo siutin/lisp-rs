@@ -15,7 +15,7 @@ struct ReadFromTokenResult {
 	result: AST
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 enum DataType {
 	Integer(u64),
 	Float(f64),
@@ -52,17 +52,58 @@ fn main() {
 	// println!("Hello, world!");
 
 	// pre-defined commands experiment
-	let mut vec:Vec<Box<Fn(Vec<DataType>) -> Result<Option<DataType>, &'static str>>> = vec![];
-	vec.push(Box::new(|vec|{
+	let mut func_hashmap:HashMap<&str, Box<Fn(Vec<DataType>) -> Result<Option<DataType>, &'static str>>> = HashMap::new();
+
+	func_hashmap.insert("hello", Box::new(|vec|{
 		println!("Function Args: {:?}", vec);
+		println!("Hello, {:?}!", vec);
 		Ok(None)
 	}));
-	for f in vec.into_iter() {
-		match f(vec![DataType::Integer(1), DataType::Integer(2)]) {
-			Ok(_) => { println!("Execution is good"); }
-			Err(_) => { println!("Execution is failed"); }
+
+	func_hashmap.insert("add", Box::new(|vec|{
+		println!("Function Args: {:?}", vec);
+		let is_not_all_integers = vec.iter().any(|x| if let DataType::Integer(_) = *x { false } else { true }); // check it's not an integer list
+
+		if is_not_all_integers {
+			return Err("wrong argument datatype");
+		}
+
+		let vec_boxed = Box::new(vec);
+		let vec_boxed2 = vec_boxed.clone();
+
+		let desc = vec_boxed.into_iter().map(|x|
+			if let DataType::Integer(i) = x {
+				i.to_string()
+			} else {
+				panic!("Something went wrong")
+			}
+ 		).collect::<Vec<String>>().join(" + ");
+		println!("Description: {}", desc);
+
+		let result = vec_boxed2.into_iter().fold(0,|o,n|
+			if let DataType::Integer(i) = n {
+				o + i
+			} else {
+				panic!("Something went wrong")
+			}
+ 		);
+		Ok(Some(DataType::Integer(result)))
+	}));
+
+	println!("func_hashmap start");
+	for (i,key) in func_hashmap.keys().enumerate() {
+		println!("{} => {}", i + 1, key);
+		match func_hashmap.get(key) {
+			Some(f) => {
+				match f(vec![DataType::Integer(1), DataType::Integer(2)]) {
+					Ok(result) => { println!("Execution is good. Result: {:?}", result); }
+					Err(_) => { println!("Execution is failed"); }
+				}
+			}
+			None => {}
 		}
 	}
+	println!("func_hashmap end");
 
 	let program = "(begin (define r 10) (* pi (* r r)))";
 	println!("program: {}", program);
