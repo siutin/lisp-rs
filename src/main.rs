@@ -50,6 +50,17 @@ impl <'a> Env<'a> {
 
 fn main() {
 	// println!("Hello, world!");
+
+	// pre-defined commands experiment
+	let mut vec:Vec<Box<Fn() -> Option<DataType>>> = vec![];
+	vec.push(Box::new(||{
+		println!("hello world");
+		None
+	}));
+	for f in vec.into_iter() {
+		f();
+	}
+
 	let program = "(begin (define r 10) (* pi (* r r)))";
 	println!("program: {}", program);
 	let tokens = tokenize(program);
