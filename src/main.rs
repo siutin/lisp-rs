@@ -52,13 +52,16 @@ fn main() {
 	// println!("Hello, world!");
 
 	// pre-defined commands experiment
-	let mut vec:Vec<Box<Fn() -> Option<DataType>>> = vec![];
-	vec.push(Box::new(||{
-		println!("hello world");
-		None
+	let mut vec:Vec<Box<Fn(Vec<DataType>) -> Result<Option<DataType>, &'static str>>> = vec![];
+	vec.push(Box::new(|vec|{
+		println!("Function Args: {:?}", vec);
+		Ok(None)
 	}));
 	for f in vec.into_iter() {
-		f();
+		match f(vec![DataType::Integer(1), DataType::Integer(2)]) {
+			Ok(_) => { println!("Execution is good"); }
+			Err(_) => { println!("Execution is failed"); }
+		}
 	}
 
 	let program = "(begin (define r 10) (* pi (* r r)))";
