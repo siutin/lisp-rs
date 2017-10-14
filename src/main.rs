@@ -62,9 +62,11 @@ fn main() {
 
 	func_hashmap.insert("add", Box::new(|vec|{
 		println!("Function Args: {:?}", vec);
-		let is_not_all_integers = vec.iter().any(|x| if let DataType::Integer(_) = *x { false } else { true }); // check it's not an integer list
-
-		if is_not_all_integers {
+		let is_all_integers = vec.iter().all(|x| if let DataType::Integer(_) = *x { true } else { false }); // check it's not an integer list
+		let is_all_integer_or_floats = vec.iter().all(|x|
+			if let DataType::Integer(_) = *x { true } else if let DataType::Float(_) = *x { true } else { false }
+		); // check it's not an float list
+		if !is_all_integer_or_floats {
 			return Err("wrong argument datatype");
 		}
 
@@ -72,22 +74,37 @@ fn main() {
 		let vec_boxed2 = vec_boxed.clone();
 
 		let desc = vec_boxed.into_iter().map(|x|
-			if let DataType::Integer(i) = x {
-				i.to_string()
-			} else {
-				panic!("Something went wrong")
+			match x {
+				DataType::Integer(i) => i.to_string(),
+				DataType::Float(f) => f.to_string(),
+				DataType::Symbol(_) => panic!("Something went wrong")
 			}
  		).collect::<Vec<String>>().join(" + ");
 		println!("Description: {}", desc);
 
-		let result = vec_boxed2.into_iter().fold(0,|o,n|
-			if let DataType::Integer(i) = n {
-				o + i
-			} else {
-				panic!("Something went wrong")
-			}
- 		);
-		Ok(Some(DataType::Integer(result)))
+		if is_all_integers {
+			let result = vec_boxed2.into_iter().fold(0,|o,n|
+				if let DataType::Integer(i) = n {
+					o + i
+				} else {
+					panic!("Something went wrong")
+				}
+			);
+			Ok(Some(DataType::Integer(result)))
+		} else if is_all_integer_or_floats {
+			let result = vec_boxed2.into_iter().fold(0.0,|o,n|
+				if let DataType::Integer(i) = n {
+					o + (i as f64)
+				} else if let DataType::Float(f) = n {
+					o + f
+				} else {
+					panic!("Something went wrong")
+				}
+			);
+			Ok(Some(DataType::Float(result)))
+		} else {
+			Err("Something went wrong")
+		}
 	}));
 
 	println!("func_hashmap start");
@@ -95,7 +112,7 @@ fn main() {
 		println!("{} => {}", i + 1, key);
 		match func_hashmap.get(key) {
 			Some(f) => {
-				match f(vec![DataType::Integer(1), DataType::Integer(2)]) {
+				match f(vec![DataType::Integer(1), DataType::Integer(2), DataType::Float(5.1)]) {
 					Ok(result) => { println!("Execution is good. Result: {:?}", result); }
 					Err(_) => { println!("Execution is failed"); }
 				}
