@@ -61,7 +61,7 @@ fn main() {
 		Ok(None)
 	}));
 
-	func_hashmap.insert("add", Box::new(|vec|{
+	func_hashmap.insert("*", Box::new(|vec|{
 		println!("Function Args: {:?}", vec);
 		let is_all_integers = vec.iter().all(|x| if let DataType::Integer(_) = *x { true } else { false }); // check it's not an integer list
 		let is_all_integer_or_floats = vec.iter().all(|x|
@@ -80,24 +80,24 @@ fn main() {
 				DataType::Float(f) => f.to_string(),
 				DataType::Symbol(_) => panic!("Something went wrong")
 			}
- 		).collect::<Vec<String>>().join(" + ");
+ 		).collect::<Vec<String>>().join(" x ");
 		println!("Description: {}", desc);
 
 		if is_all_integers {
-			let result = vec_boxed2.into_iter().fold(0,|o,n|
+			let result = vec_boxed2.into_iter().fold(1,|o,n|
 				if let DataType::Integer(i) = n {
-					o + i
+					o * i
 				} else {
 					panic!("Something went wrong")
 				}
 			);
 			Ok(Some(DataType::Integer(result)))
 		} else if is_all_integer_or_floats {
-			let result = vec_boxed2.into_iter().fold(0.0,|o,n|
+			let result = vec_boxed2.into_iter().fold(1.0,|o,n|
 				if let DataType::Integer(i) = n {
-					o + (i as f64)
+					o * (i as f64)
 				} else if let DataType::Float(f) = n {
-					o + f
+					o * f
 				} else {
 					panic!("Something went wrong")
 				}
@@ -132,8 +132,8 @@ fn main() {
 	if ast.is_ok() {
 		let global = RefCell::new(HashMap::new());
 
-		global.borrow_mut().insert("begin".to_string(), DataType::Integer(1));
-		global.borrow_mut().insert("*".to_string(), DataType::Integer(2));
+		// global.borrow_mut().insert("begin".to_string(), DataType::Integer(1));
+		// global.borrow_mut().insert("*".to_string(), DataType::Integer(2));
 		global.borrow_mut().insert("pi".to_string(), DataType::Float(3.141592654));
 
 		let functions = RefCell::new(func_hashmap);
