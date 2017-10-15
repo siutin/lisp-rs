@@ -25,6 +25,7 @@ enum DataType {
 #[derive(Debug)]
 struct Env<'a> {
 	local: &'a RefCell<HashMap<String, DataType>>,
+	functions:	&'a RefCell<HashMap<&'a str, Box<Fn(Vec<DataType>) -> Result<Option<DataType>, &'static str>>>>,
 	parent: Option<Box<RefCell<Env<'a>>>>
 }
 
@@ -135,9 +136,11 @@ fn main() {
 		global.borrow_mut().insert("*".to_string(), DataType::Integer(2));
 		global.borrow_mut().insert("pi".to_string(), DataType::Float(3.141592654));
 
+		let functions = RefCell::new(func_hashmap);
 		let env = RefCell::new(
 			Env {
 				local: &global,
+				functions: &functions,
 				parent: None
 			}
 		);
