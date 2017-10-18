@@ -143,18 +143,23 @@ fn main() {
 		}
 	);
 
-	let program = "(begin (define r 10) (* pi (* r r)))";
-	match parse(program) {
+	let env_ref = env.clone();
+	try_parse_exec("(define r 10)", env_ref.clone(), Box::new(|r| println!("p: {:?}", r) ));
+	try_parse_exec("(* pi (* r r))", env_ref.clone(), Box::new(|r| println!("p: {:?}", r) ));
+}
+
+
+fn try_parse_exec(stmt: &str, env: RefCell<Env>, hander: Box<Fn(Option<AST>)>) {
+	match parse(stmt) {
 		Ok(ast) => {
 			let p = eval(Some(ast.result), &env);
 			match p {
-				Ok(r) => println!("p: {:?}", r),
+				Ok(r) => hander(r),
 				Err(e) => panic!("ERROR: {}", e)
 			}
 		},
 		Err(e) => panic!("ERROR: {}", e)
 	}
-
 }
 
 fn parse(program: &str) -> Result<ReadFromTokenResult, &'static str> {
