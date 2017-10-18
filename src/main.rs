@@ -6,9 +6,7 @@ enum AST {
 	Integer(u64),
 	Float(f64),
 	Symbol(String),
-	Children(Vec<AST>),
-	// second stage
-	Proc(String),
+	Children(Vec<AST>)
 }
 
 #[derive(Debug)]
@@ -198,16 +196,7 @@ fn eval(ast_option: Option<AST>, env: &RefCell<Env>) -> Result<Option<AST>, &'st
 			Some(DataType::Integer(i)) => Ok(Some(AST::Integer(i))),
 			Some(DataType::Float(f)) => Ok(Some(AST::Float(f))),
 			Some(DataType::Symbol(ref ss)) => Ok(Some(AST::Symbol(ss.clone()))),
-			None => {
-				println!("can not find symbol in env variables");
-				if  env_borrowed_mut.functions.borrow().contains_key::<str>(&s) {
-					println!("found symbol '{}' in functions", &s);
-					Ok(Some(AST::Proc(s.to_string())))
-				} else {
-					print!("functions in environment: {:?}", env_borrowed_mut.local);
-					panic!("'symbol '{}' is not defined", s.to_string())
-				}
-			}
+			None => panic!("'symbol '{}' is not defined", s.to_string())
 		}
 	} else if let AST::Children(list) = ast {
 		println!("ast is a children: {:?}", list);
@@ -224,7 +213,6 @@ fn eval(ast_option: Option<AST>, env: &RefCell<Env>) -> Result<Option<AST>, &'st
 							Some(Some(AST::Float(f))) => { env.borrow_mut().local.borrow_mut().insert(s1.clone(), DataType::Float(f)); },
 							Some(Some(AST::Symbol(ref s))) => {env.borrow_mut().local.borrow_mut().insert(s1.clone(), DataType::Symbol(s.clone())); },
 							Some(Some(AST::Children(_))) => { return Err("should not reach here"); },
-							Some(Some(AST::Proc(_))) => { unimplemented!() },
 							Some(None) | None => { }
 						};
 						return Ok(None)
@@ -250,7 +238,6 @@ fn eval(ast_option: Option<AST>, env: &RefCell<Env>) -> Result<Option<AST>, &'st
 										Some(AST::Integer(i)) => DataType::Integer(i),
 										Some(AST::Float(f)) => DataType::Float(f),
 										Some(AST::Symbol(s)) => DataType::Symbol(s),
-										Some(AST::Proc(_)) => panic!("Do I care? AST::Proc"),
 										Some(AST::Children(_)) => panic!("Should I care AST::Children?"),
 										None => panic!("Should not be none, I guess.")
 									}
