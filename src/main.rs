@@ -184,118 +184,98 @@ fn atom(token: &str) -> AST {
 
 fn eval(ast_option: Option<AST>, env: &RefCell<Env>) -> Result<Option<AST>, &'static str> {
 	println!("eval");
-	match ast_option {
-		Some(ast) => {
-			println!("ast => {:?}", ast);
-			if let AST::Symbol(s) = ast {
-				println!("ast is a symbol");
-				let mut env_borrowed_mut1 = env.borrow_mut();
-				match env_borrowed_mut1.get(&s) {
-					Some(DataType::Integer(i)) => Ok(Some(AST::Integer(i))),
-					Some(DataType::Float(f)) => Ok(Some(AST::Float(f))),
-					Some(DataType::Symbol(ref ss)) => Ok(Some(AST::Symbol(ss.clone()))),
-					// None => panic!("'{}' is not defined", s.to_string())
-					None => {
-						println!("find in functions");
-						let s = &s.to_string();
-						println!("s: {:?}", s);
-						let env_borrowed_mut2 = env_borrowed_mut1.clone();
-						let functions = env_borrowed_mut2.functions;
-						let functions_borrowed = functions.borrow();
-						match functions_borrowed.get::<str>(s) {
-							Some(_) => {
-								println!("found {}", &s);
-								Ok(Some(AST::Proc(s.to_string())))
-							},
-							None => {
-								let env_borrowed_mut3 = env_borrowed_mut2.clone();
-								print!("functions keys: {:?}", env_borrowed_mut3.local);
-								panic!("'{}' is not defined", s.to_string())
-							}
-						}
-					}
-				}
-			} else if let AST::Children(list) = ast {
-				println!("ast is a children");
-
-				let solved_list: Vec<Option<AST>> = list.into_iter().map(|x| Some(x)).collect::<_>();
-				println!("{:?}", solved_list);
-
-				if let Some(AST::Symbol(ref s0)) = solved_list[0] {
-					match s0.as_str() {
-						"define" => {
-							if let Some(AST::Symbol(ref s1)) = solved_list[1].clone() {
-								match Some(solved_list[2].clone()) {
-									Some(Some(AST::Integer(i))) => { env.borrow_mut().local.borrow_mut().insert(s1.clone(), DataType::Integer(i)); },
-									Some(Some(AST::Float(f))) => { env.borrow_mut().local.borrow_mut().insert(s1.clone(), DataType::Float(f)); },
-									Some(Some(AST::Symbol(ref s))) => {env.borrow_mut().local.borrow_mut().insert(s1.clone(), DataType::Symbol(s.clone())); },
-									Some(Some(AST::Children(_))) => { return Err("should not reach here"); },
-									Some(Some(AST::Proc(_))) => { unimplemented!() },
-									Some(None) | None => { }
-								};
-								return Ok(None)
-							} else {
-								return Err("definition name must be a symbol");
-							}
-						},
-						_ => {
-							println!("Some(AST::Symbol) but not define");
-							println!("proc_key : {}", s0);
-							let env2 = env.clone();
-							let env3 = env2.clone();
-							let env4 = env3.clone();
-							let env_borrowed_mut1 = env3.borrow_mut();
-
-							let functions = env_borrowed_mut1.functions;
-							let functions_borrowed = functions.borrow();
-
-							match functions_borrowed.get::<str>(s0) {
-								Some(f) => {
-									let slice = &solved_list[1..solved_list.len()];
-									let args = slice.iter().filter(|x| !x.is_none() ).map(move |x|
-										{
-											return eval(x.clone(), &env4.clone()).unwrap();
-										}).filter(|x| !x.is_none() )
-										.map(|x|
-											match x {
-												Some(AST::Integer(i)) => DataType::Integer(i),
-												Some(AST::Float(f)) => DataType::Float(f),
-												Some(AST::Symbol(s)) => DataType::Symbol(s),
-												Some(AST::Children(_)) => panic!("Do I care? AST::Children"),
-												Some(AST::Proc(_)) => panic!("Do I care? AST::Proc"),
-												None => panic!("Should not be none, I guess.")
-											}
-										).collect::<Vec<DataType>>();
-									match f(args) {
-										Ok(result) => {
-											match result {
-												Some(DataType::Integer(i)) => Ok(Some(AST::Integer(i))),
-												Some(DataType::Float(f)) => Ok(Some(AST::Float(f))),
-												Some(DataType::Symbol(ref ss)) => Ok(Some(AST::Symbol(ss.clone()))),
-												None => Ok(None)
-											}
-										},
-										Err(e) => { return Err(e) }
-									}
-								},
-								None => {
-									print!("functions keys: {:?}", env_borrowed_mut1.local);
-									panic!("'{}' is not defined", s0.to_string())
-								}
-							}
-						}
-					}
-				} else {
-					panic!("should not reach here");
-				}
-			} else {
-				println!("ast is not a children");
-				Ok(Some(ast))
-			}
-		},
-		None => Ok(None)
+	if ast_option.is_none() {
+		return Ok(None);
 	}
 
+	let ast = ast_option.unwrap();
+	println!("ast => {:?}", ast);
+
+	if let AST::Symbol(s) = ast {
+		println!("ast is a symbol: {:?}", s);
+		let mut env_borrowed_mut = env.borrow_mut();
+		match env_borrowed_mut.get(&s) {
+			Some(DataType::Integer(i)) => Ok(Some(AST::Integer(i))),
+			Some(DataType::Float(f)) => Ok(Some(AST::Float(f))),
+			Some(DataType::Symbol(ref ss)) => Ok(Some(AST::Symbol(ss.clone()))),
+			None => {
+				println!("can not find symbol in env variables");
+				if  env_borrowed_mut.functions.borrow().contains_key::<str>(&s) {
+					println!("found symbol '{}' in functions", &s);
+					Ok(Some(AST::Proc(s.to_string())))
+				} else {
+					print!("functions in environment: {:?}", env_borrowed_mut.local);
+					panic!("'symbol '{}' is not defined", s.to_string())
+				}
+			}
+		}
+	} else if let AST::Children(list) = ast {
+		println!("ast is a children: {:?}", list);
+
+		let solved_list: Vec<Option<AST>> = list.into_iter().map(|x| Some(x)).collect::<_>();
+		println!("{:?}", solved_list);
+
+		if let Some(AST::Symbol(ref s0)) = solved_list[0] {
+			match s0.as_str() {
+				"define" => {
+					if let Some(AST::Symbol(ref s1)) = solved_list[1].clone() {
+						match Some(solved_list[2].clone()) {
+							Some(Some(AST::Integer(i))) => { env.borrow_mut().local.borrow_mut().insert(s1.clone(), DataType::Integer(i)); },
+							Some(Some(AST::Float(f))) => { env.borrow_mut().local.borrow_mut().insert(s1.clone(), DataType::Float(f)); },
+							Some(Some(AST::Symbol(ref s))) => {env.borrow_mut().local.borrow_mut().insert(s1.clone(), DataType::Symbol(s.clone())); },
+							Some(Some(AST::Children(_))) => { return Err("should not reach here"); },
+							Some(Some(AST::Proc(_))) => { unimplemented!() },
+							Some(None) | None => { }
+						};
+						return Ok(None)
+					} else {
+						return Err("definition name must be a symbol");
+					}
+				},
+				_ => {
+					println!("Some(AST::Symbol) but not define");
+					println!("proc_key : {}", s0);
+					let env_shared = env.clone();
+					let env_borrowed_mut = env.borrow_mut();
+
+					match env_borrowed_mut.functions.borrow().get::<str>(s0) {
+						Some(f) => {
+							let slice = &solved_list[1..solved_list.len()];
+							let args = slice.iter().filter(|x| x.is_some() )
+								.map(|x| eval(x.clone(), &env_shared.clone()))
+								.filter_map(|r|r.ok())
+								.filter(|x| x.is_some() )
+								.map(|x|
+									match x {
+										Some(AST::Integer(i)) => DataType::Integer(i),
+										Some(AST::Float(f)) => DataType::Float(f),
+										Some(AST::Symbol(s)) => DataType::Symbol(s),
+										Some(AST::Proc(_)) => panic!("Do I care? AST::Proc"),
+										Some(AST::Children(_)) => panic!("Should I care AST::Children?"),
+										None => panic!("Should not be none, I guess.")
+									}
+								).collect::<Vec<DataType>>();
+
+							f(args).and_then(|r| {
+								match r {
+									Some(DataType::Integer(i)) => Ok(Some(AST::Integer(i))),
+									Some(DataType::Float(f)) => Ok(Some(AST::Float(f))),
+									Some(DataType::Symbol(ref ss)) => Ok(Some(AST::Symbol(ss.clone()))),
+									None => Ok(None)
+								}
+							})
+						},
+						None => panic!("Symbol'{}' is not defined", s0.to_string())
+					}
+				}
+			}
+		} else {
+			panic!("should not reach here");
+		}
+	} else {
+		println!("ast is not a symbol/children");
+		Ok(Some(ast))
+	}
 }
 
 fn setup_functions() -> HashMap<&'static str, Box<Fn(Vec<DataType>) -> Result<Option<DataType>, &'static str>>> {
