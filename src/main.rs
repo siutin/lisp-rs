@@ -75,14 +75,8 @@ fn main() {
 
 
 fn try_parse_exec(stmt: &str, env: RefCell<Env>, hander: Box<Fn(Option<AST>)>) {
-	match parse(stmt) {
-		Ok(ast) => {
-			let p = eval(Some(ast.result), &env);
-			match p {
-				Ok(r) => hander(r),
-				Err(e) => panic!("ERROR: {}", e)
-			}
-		},
+	match parse(stmt).and_then(|ast| eval(Some(ast.result), &env)) {
+		Ok(r) => hander(r),
 		Err(e) => panic!("ERROR: {}", e)
 	}
 }
