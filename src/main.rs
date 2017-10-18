@@ -24,15 +24,15 @@ enum DataType {
 
 #[derive(Clone)]
 struct Env<'a> {
-	local: &'a RefCell<HashMap<String, DataType>>,
+	variables: &'a RefCell<HashMap<String, DataType>>,
 	functions:	&'a RefCell<HashMap<&'a str, Box<Fn(Vec<DataType>) -> Result<Option<DataType>, &'static str>>>>,
 	parent: Option<Box<RefCell<Env<'a>>>>
 }
 
 impl <'a> Env<'a> {
 	fn get(&mut self, key: &String) -> Option<DataType> {
-		let local_borrow = self.local.borrow_mut();
-		match local_borrow.get(key) {
+		let variables_borrow = self.variables.borrow_mut();
+		match variables_borrow.get(key) {
 			Some(&DataType::Integer(i)) => Some(DataType::Integer(i)),
 			Some(&DataType::Float(f)) => Some(DataType::Float(f)),
 			Some(&DataType::Symbol(ref ss)) =>Some(DataType::Symbol(ss.clone())),
@@ -52,18 +52,15 @@ impl <'a> Env<'a> {
 fn main() {
 	// println!("Hello, world!");
 
+	let variables_ref = RefCell::new(HashMap::new());
+	variables_ref.borrow_mut().insert("pi".to_string(), DataType::Float(3.141592654));
+
 	// pre-defined commands experiment
-	let func_hashmap = setup_functions();
-
-	let global = RefCell::new(HashMap::new());
-
-	global.borrow_mut().insert("pi".to_string(), DataType::Float(3.141592654));
-
-	let functions = RefCell::new(func_hashmap);
+	let functions_ref = RefCell::new(setup_functions());
 	let env = RefCell::new(
 		Env {
-			local: &global,
-			functions: &functions,
+			variables: &variables_ref,
+			functions: &functions_ref,
 			parent: None
 		}
 	);
@@ -211,9 +208,9 @@ fn eval(ast_option: Option<AST>, env: &RefCell<Env>) -> Result<Option<AST>, &'st
 				"define" => {
 					if let Some(AST::Symbol(ref s1)) = solved_list[1].clone() {
 						match Some(solved_list[2].clone()) {
-							Some(Some(AST::Integer(i))) => { env.borrow_mut().local.borrow_mut().insert(s1.clone(), DataType::Integer(i)); },
-							Some(Some(AST::Float(f))) => { env.borrow_mut().local.borrow_mut().insert(s1.clone(), DataType::Float(f)); },
-							Some(Some(AST::Symbol(ref s))) => {env.borrow_mut().local.borrow_mut().insert(s1.clone(), DataType::Symbol(s.clone())); },
+							Some(Some(AST::Integer(i))) => { env.borrow_mut().variables.borrow_mut().insert(s1.clone(), DataType::Integer(i)); },
+							Some(Some(AST::Float(f))) => { env.borrow_mut().variables.borrow_mut().insert(s1.clone(), DataType::Float(f)); },
+							Some(Some(AST::Symbol(ref s))) => {env.borrow_mut().variables.borrow_mut().insert(s1.clone(), DataType::Symbol(s.clone())); },
 							Some(Some(AST::Children(_))) => { return Err("should not reach here"); },
 							Some(None) | None => { }
 						};
