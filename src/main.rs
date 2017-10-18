@@ -55,80 +55,7 @@ fn main() {
 	// println!("Hello, world!");
 
 	// pre-defined commands experiment
-	let mut func_hashmap:HashMap<&str, Box<Fn(Vec<DataType>) -> Result<Option<DataType>, &'static str>>> = HashMap::new();
-
-	func_hashmap.insert("begin", Box::new(|mut vec|{
-		println!("Function - name: {:?} - Args: {:?}", "begin", vec);
-		Ok(vec.pop().clone())
-	}));
-
-	func_hashmap.insert("hello", Box::new(|vec|{
-		println!("Function Args: {:?}", vec);
-		println!("Hello, {:?}!", vec);
-		Ok(None)
-	}));
-
-	func_hashmap.insert("*", Box::new(|vec|{
-		println!("Function Args: {:?}", vec);
-		let is_all_integers = vec.iter().all(|x| if let DataType::Integer(_) = *x { true } else { false }); // check it's not an integer list
-		let is_all_integer_or_floats = vec.iter().all(|x|
-			if let DataType::Integer(_) = *x { true } else if let DataType::Float(_) = *x { true } else { false }
-		); // check it's not an float list
-		if !is_all_integer_or_floats {
-			return Err("wrong argument datatype");
-		}
-
-		let vec_boxed = Box::new(vec);
-		let vec_boxed2 = vec_boxed.clone();
-
-		let desc = vec_boxed.into_iter().map(|x|
-			match x {
-				DataType::Integer(i) => i.to_string(),
-				DataType::Float(f) => f.to_string(),
-				DataType::Symbol(_) => panic!("Something went wrong")
-			}
-		).collect::<Vec<String>>().join(" x ");
-		println!("Description: {}", desc);
-
-		if is_all_integers {
-			let result = vec_boxed2.into_iter().fold(1,|o,n|
-				if let DataType::Integer(i) = n {
-					o * i
-				} else {
-					panic!("Something went wrong")
-				}
-			);
-			Ok(Some(DataType::Integer(result)))
-		} else if is_all_integer_or_floats {
-			let result = vec_boxed2.into_iter().fold(1.0,|o,n|
-				if let DataType::Integer(i) = n {
-					o * (i as f64)
-				} else if let DataType::Float(f) = n {
-					o * f
-				} else {
-					panic!("Something went wrong")
-				}
-			);
-			Ok(Some(DataType::Float(result)))
-		} else {
-			Err("Something went wrong")
-		}
-	}));
-
-	println!("func_hashmap start");
-	for (i,key) in func_hashmap.keys().enumerate() {
-		println!("{} => {}", i + 1, key);
-		match func_hashmap.get(key) {
-			Some(f) => {
-				match f(vec![DataType::Integer(1), DataType::Integer(2), DataType::Float(5.1)]) {
-					Ok(result) => { println!("Execution is good. Result: {:?}", result); }
-					Err(_) => { println!("Execution is failed"); }
-				}
-			}
-			None => {}
-		}
-	}
-	println!("func_hashmap end");
+	let func_hashmap = setup_functions();
 
 	let global = RefCell::new(HashMap::new());
 
@@ -369,4 +296,83 @@ fn eval(ast_option: Option<AST>, env: &RefCell<Env>) -> Result<Option<AST>, &'st
 		None => Ok(None)
 	}
 
+}
+
+fn setup_functions() -> HashMap<&'static str, Box<Fn(Vec<DataType>) -> Result<Option<DataType>, &'static str>>> {
+	let mut func_hashmap:HashMap<&str, Box<Fn(Vec<DataType>) -> Result<Option<DataType>, &'static str>>> = HashMap::new();
+
+	func_hashmap.insert("begin", Box::new(|mut vec|{
+		println!("Function - name: {:?} - Args: {:?}", "begin", vec);
+		Ok(vec.pop().clone())
+	}));
+
+	func_hashmap.insert("hello", Box::new(|vec|{
+		println!("Function Args: {:?}", vec);
+		println!("Hello, {:?}!", vec);
+		Ok(None)
+	}));
+
+	func_hashmap.insert("*", Box::new(|vec|{
+		println!("Function Args: {:?}", vec);
+		let is_all_integers = vec.iter().all(|x| if let DataType::Integer(_) = *x { true } else { false }); // check it's not an integer list
+		let is_all_integer_or_floats = vec.iter().all(|x|
+			if let DataType::Integer(_) = *x { true } else if let DataType::Float(_) = *x { true } else { false }
+		); // check it's not an float list
+		if !is_all_integer_or_floats {
+			return Err("wrong argument datatype");
+		}
+
+		let vec_boxed = Box::new(vec);
+		let vec_boxed2 = vec_boxed.clone();
+
+		let desc = vec_boxed.into_iter().map(|x|
+			match x {
+				DataType::Integer(i) => i.to_string(),
+				DataType::Float(f) => f.to_string(),
+				DataType::Symbol(_) => panic!("Something went wrong")
+			}
+		).collect::<Vec<String>>().join(" x ");
+		println!("Description: {}", desc);
+
+		if is_all_integers {
+			let result = vec_boxed2.into_iter().fold(1,|o,n|
+				if let DataType::Integer(i) = n {
+					o * i
+				} else {
+					panic!("Something went wrong")
+				}
+			);
+			Ok(Some(DataType::Integer(result)))
+		} else if is_all_integer_or_floats {
+			let result = vec_boxed2.into_iter().fold(1.0,|o,n|
+				if let DataType::Integer(i) = n {
+					o * (i as f64)
+				} else if let DataType::Float(f) = n {
+					o * f
+				} else {
+					panic!("Something went wrong")
+				}
+			);
+			Ok(Some(DataType::Float(result)))
+		} else {
+			Err("Something went wrong")
+		}
+	}));
+
+    println!("func_hashmap start");
+    for (i,key) in func_hashmap.keys().enumerate() {
+        println!("{} => {}", i + 1, key);
+        match func_hashmap.get(key) {
+            Some(f) => {
+                match f(vec![DataType::Integer(1), DataType::Integer(2), DataType::Float(5.1)]) {
+                    Ok(result) => { println!("Execution is good. Result: {:?}", result); }
+                    Err(_) => { println!("Execution is failed"); }
+                }
+            }
+            None => {}
+        }
+    }
+    println!("func_hashmap end");
+
+	return func_hashmap;
 }
