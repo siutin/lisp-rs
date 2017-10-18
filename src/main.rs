@@ -276,13 +276,12 @@ fn setup_functions() -> HashMap<&'static str, Box<Fn(Vec<DataType>) -> Result<Op
 	}));
 
 	func_hashmap.insert("hello", Box::new(|vec|{
-		println!("Function Args: {:?}", vec);
-		println!("Hello, {:?}!", vec);
+		println!("Function - name: {:?} - Args: {:?}", "hello", vec);
 		Ok(None)
 	}));
 
 	func_hashmap.insert("*", Box::new(|vec|{
-		println!("Function Args: {:?}", vec);
+		println!("Function - name: {:?} - Args: {:?}", "*", vec);
 		let is_all_integers = vec.iter().all(|x| if let DataType::Integer(_) = *x { true } else { false }); // check it's not an integer list
 		let is_all_integer_or_floats = vec.iter().all(|x|
 			if let DataType::Integer(_) = *x { true } else if let DataType::Float(_) = *x { true } else { false }
