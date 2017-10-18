@@ -130,32 +130,40 @@ fn main() {
 	}
 	println!("func_hashmap end");
 
+	let global = RefCell::new(HashMap::new());
+
+	global.borrow_mut().insert("pi".to_string(), DataType::Float(3.141592654));
+
+	let functions = RefCell::new(func_hashmap);
+	let env = RefCell::new(
+		Env {
+			local: &global,
+			functions: &functions,
+			parent: None
+		}
+	);
+
 	let program = "(begin (define r 10) (* pi (* r r)))";
+	match parse(program) {
+		Ok(ast) => {
+			let p = eval(Some(ast.result), &env);
+			match p {
+				Ok(r) => println!("p: {:?}", r),
+				Err(e) => panic!("ERROR: {}", e)
+			}
+		},
+		Err(e) => panic!("ERROR: {}", e)
+	}
+
+}
+
+fn parse(program: &str) -> Result<ReadFromTokenResult, &'static str> {
 	println!("program: {}", program);
 	let tokens = tokenize(program);
 	println!("tokens: {:?}", tokens);
 	let ast = read_from_tokens(tokens.clone());
 	println!("ast: {:?}", ast);
-	if ast.is_ok() {
-		let global = RefCell::new(HashMap::new());
-
-		global.borrow_mut().insert("pi".to_string(), DataType::Float(3.141592654));
-
-		let functions = RefCell::new(func_hashmap);
-		let env = RefCell::new(
-			Env {
-				local: &global,
-				functions: &functions,
-				parent: None
-			}
-		);
-		let p = eval(Some(ast.unwrap().result), &env);
-		match p {
-			Ok(r) => println!("p: {:?}", r),
-			Err(e) => panic!("ERROR: {}", e)
-		}
-	}
-
+	return ast;
 }
 
 fn tokenize(program: &str) -> Vec<String>
