@@ -130,6 +130,10 @@ fn read_from_tokens(mut tokens:Vec<String>) -> Result<ReadFromTokenResult, &'sta
 			let mut vec:Vec<AST> = vec![];
 			let mut tmp_tokens = tokens.clone();
 
+			if !(tmp_tokens.len() > 0) {
+				return Err("syntax error")
+			}
+
 			while tmp_tokens[0] != ")" {
 				match read_from_tokens(tmp_tokens.clone()) {
 					Ok(data) => {
@@ -197,6 +201,10 @@ fn eval(ast_option: Option<AST>, env: &RefCell<Env>) -> Result<Option<AST>, &'st
 
 		let solved_list: Vec<Option<AST>> = list.into_iter().map(|x| Some(x)).collect::<_>();
 		println!("{:?}", solved_list);
+
+		if !(solved_list.len() > 0) {
+			return Err("syntax error")
+		}
 
 		if let Some(AST::Symbol(ref s0)) = solved_list[0] {
 			match s0.as_str() {
