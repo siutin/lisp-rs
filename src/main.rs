@@ -69,14 +69,15 @@ fn main() {
         }
     );
 
-    try_parse_exec("(define r 10)", &env, Box::new(|r| println!("p: {:?}", r)));
-    try_parse_exec("(* pi (* r r))", &env, Box::new(|r| println!("p: {:?}", r)));
+    try_parse_exec("(define r 10)", &env, Box::new(|stmt, r| println!("{} = {:?}", stmt, r)));
+    try_parse_exec("(* pi (* r r))", &env, Box::new(|stmt, r| println!("{} = {:?}", stmt, r)));
+    try_parse_exec("(begin (define r 10) (* pi (* r r)))", &env, Box::new(|stmt, r| println!("{} = {:?}", stmt, r)));
 }
 
 
-fn try_parse_exec(stmt: &str, env: &RefCell<Env>, hander: Box<Fn(Option<AST>)>) {
+fn try_parse_exec(stmt: &str, env: &RefCell<Env>, hander: Box<Fn(&str, Option<AST>)>) {
     match parse(stmt).and_then(|ast| eval(Some(ast.result), &env)) {
-        Ok(r) => hander(r),
+        Ok(r) => hander(stmt, r),
         Err(e) => panic!("ERROR: {}", e)
     }
 }
