@@ -1,3 +1,15 @@
+[[bin]]
+name = "main"
+path = "src/main.rs"
+
+[[bin]]
+name = "study01"
+path = "src/study01.rs"
+
+[[bin]]
+name = "study02"
+path = "src/study02.rs"
+
 [package]
 name = "scheme-rs"
 version = "0.1.0"
