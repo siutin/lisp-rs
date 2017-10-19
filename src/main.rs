@@ -1,3 +1,7 @@
+#[macro_use]
+extern crate log;
+extern crate simple_logger;
+
 use std::collections::HashMap;
 use std::cell::RefCell;
 
@@ -50,7 +54,7 @@ impl<'a> Env<'a> {
 }
 
 fn main() {
-    // println!("Hello, world!");
+    simple_logger::init().unwrap();
 
     let variables_ref = RefCell::new(HashMap::new());
     variables_ref.borrow_mut().insert("pi".to_string(), DataType::Float(std::f64::consts::PI));
@@ -78,11 +82,11 @@ fn try_parse_exec(stmt: &str, env: &RefCell<Env>, hander: Box<Fn(Option<AST>)>) 
 }
 
 fn parse(program: &str) -> Result<ReadFromTokenResult, &'static str> {
-    println!("program: {}", program);
+    debug!("program: {}", program);
     let tokens = tokenize(program);
-    println!("tokens: {:?}", tokens);
+    debug!("tokens: {:?}", tokens);
     let ast = read_from_tokens(tokens.clone());
-    println!("ast: {:?}", ast);
+    debug!("ast: {:?}", ast);
     return ast;
 }
 
@@ -91,8 +95,6 @@ fn tokenize(program: &str) -> Vec<String>
     let mut iterator = Box::new(program.chars());
     let count = iterator.clone().count();
     let mut vec: Vec<char> = Vec::with_capacity(count);
-
-    // println!("{:?}", iterator2);
 
     loop {
         match iterator.next() {
@@ -175,16 +177,16 @@ fn atom(token: &str) -> AST {
 }
 
 fn eval(ast_option: Option<AST>, env: &RefCell<Env>) -> Result<Option<AST>, &'static str> {
-    println!("eval");
+    debug!("eval");
     if ast_option.is_none() {
         return Ok(None);
     }
 
     let ast = ast_option.unwrap();
-    println!("ast => {:?}", ast);
+    debug!("ast => {:?}", ast);
 
     if let AST::Symbol(s) = ast {
-        println!("ast is a symbol: {:?}", s);
+        debug!("ast is a symbol: {:?}", s);
         let mut env_borrowed_mut = env.borrow_mut();
         match env_borrowed_mut.get(&s) {
             Some(DataType::Integer(i)) => Ok(Some(AST::Integer(i))),
@@ -193,10 +195,10 @@ fn eval(ast_option: Option<AST>, env: &RefCell<Env>) -> Result<Option<AST>, &'st
             None => panic!("'symbol '{}' is not defined", s.to_string())
         }
     } else if let AST::Children(list) = ast {
-        println!("ast is a children: {:?}", list);
+        debug!("ast is a children: {:?}", list);
 
         let solved_list: Vec<Option<AST>> = list.into_iter().map(|x| Some(x)).collect::<_>();
-        println!("{:?}", solved_list);
+        debug!("{:?}", solved_list);
 
         if !(solved_list.len() > 0) {
             return Err("syntax error");
@@ -205,7 +207,7 @@ fn eval(ast_option: Option<AST>, env: &RefCell<Env>) -> Result<Option<AST>, &'st
         if let Some(AST::Symbol(ref s0)) = solved_list[0] {
             match s0.as_str() {
                 "define" => {
-                    if let Some(AST::Symbol(ref s1)) = solved_list[1].clone() {
+                    if let Some(AST::Symbol(ref s1)) = solved_list[1] {
                         match Some(solved_list[2].clone()) {
                             Some(Some(AST::Integer(i))) => { env.borrow_mut().variables.borrow_mut().insert(s1.clone(), DataType::Integer(i)); }
                             Some(Some(AST::Float(f))) => { env.borrow_mut().variables.borrow_mut().insert(s1.clone(), DataType::Float(f)); }
@@ -219,8 +221,8 @@ fn eval(ast_option: Option<AST>, env: &RefCell<Env>) -> Result<Option<AST>, &'st
                     }
                 }
                 _ => {
-                    println!("Some(AST::Symbol) but not define");
-                    println!("proc_key : {}", s0);
+                    debug!("Some(AST::Symbol) but not define");
+                    debug!("proc_key : {}", s0);
                     let env_shared = env.clone();
                     let env_borrowed_mut = env.borrow_mut();
 
@@ -258,7 +260,7 @@ fn eval(ast_option: Option<AST>, env: &RefCell<Env>) -> Result<Option<AST>, &'st
             panic!("should not reach here");
         }
     } else {
-        println!("ast is not a symbol/children");
+        debug!("ast is not a symbol/children");
         Ok(Some(ast))
     }
 }
@@ -267,17 +269,17 @@ fn setup_functions() -> HashMap<&'static str, Box<Fn(Vec<DataType>) -> Result<Op
     let mut func_hashmap: HashMap<&str, Box<Fn(Vec<DataType>) -> Result<Option<DataType>, &'static str>>> = HashMap::new();
 
     func_hashmap.insert("begin", Box::new(|mut vec| {
-        println!("Function - name: {:?} - Args: {:?}", "begin", vec);
+        debug!("Function - name: {:?} - Args: {:?}", "begin", vec);
         Ok(vec.pop().clone())
     }));
 
     func_hashmap.insert("hello", Box::new(|vec| {
-        println!("Function - name: {:?} - Args: {:?}", "hello", vec);
+        debug!("Function - name: {:?} - Args: {:?}", "hello", vec);
         Ok(None)
     }));
 
     func_hashmap.insert("*", Box::new(|vec| {
-        println!("Function - name: {:?} - Args: {:?}", "*", vec);
+        debug!("Function - name: {:?} - Args: {:?}", "*", vec);
         let is_all_integers = vec.iter().all(|x| if let DataType::Integer(_) = *x { true } else { false }); // check it's not an integer list
         let is_all_integer_or_floats = vec.iter().all(|x|
             if let DataType::Integer(_) = *x { true } else if let DataType::Float(_) = *x { true } else { false }
@@ -296,7 +298,7 @@ fn setup_functions() -> HashMap<&'static str, Box<Fn(Vec<DataType>) -> Result<Op
                 DataType::Symbol(_) => panic!("Something went wrong")
             }
         ).collect::<Vec<String>>().join(" x ");
-        println!("Description: {}", desc);
+        debug!("Description: {}", desc);
 
         if is_all_integers {
             let result = vec_boxed2.into_iter().fold(1, |o, n|
@@ -323,20 +325,20 @@ fn setup_functions() -> HashMap<&'static str, Box<Fn(Vec<DataType>) -> Result<Op
         }
     }));
 
-    println!("func_hashmap start");
+    debug!("func_hashmap start");
     for (i, key) in func_hashmap.keys().enumerate() {
-        println!("{} => {}", i + 1, key);
+        debug!("{} => {}", i + 1, key);
         match func_hashmap.get(key) {
             Some(f) => {
                 match f(vec![DataType::Integer(1), DataType::Integer(2), DataType::Float(5.1)]) {
-                    Ok(result) => { println!("Execution is good. Result: {:?}", result); }
-                    Err(_) => { println!("Execution is failed"); }
+                    Ok(result) => { debug!("Execution is good. Result: {:?}", result); }
+                    Err(_) => { debug!("Execution is failed"); }
                 }
             }
             None => {}
         }
     }
-    println!("func_hashmap end");
+    debug!("func_hashmap end");
 
     return func_hashmap;
 }
