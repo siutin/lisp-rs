@@ -61,22 +61,20 @@ fn main() {
 
     // pre-defined commands experiment
     let functions_ref = RefCell::new(setup_functions());
-    let env = RefCell::new(
-        Env {
-            variables: &variables_ref,
-            functions: &functions_ref,
-            parent: None
-        }
-    );
+    let mut env = Env {
+        variables: &variables_ref,
+        functions: &functions_ref,
+        parent: None
+    };
 
-    try_parse_exec("(define r 10)", &env, Box::new(|stmt, r| println!("{} = {:?}", stmt, r)));
-    try_parse_exec("(* pi (* r r))", &env, Box::new(|stmt, r| println!("{} = {:?}", stmt, r)));
-    try_parse_exec("(begin (define r 10) (* pi (* r r)))", &env, Box::new(|stmt, r| println!("{} = {:?}", stmt, r)));
+    try_parse_exec("(define r 10)", &mut env, Box::new(|stmt, r| println!("{} = {:?}", stmt, r)));
+    try_parse_exec("(* pi (* r r))", &mut env, Box::new(|stmt, r| println!("{} = {:?}", stmt, r)));
+    try_parse_exec("(begin (define r 10) (* pi (* r r)))", &mut env, Box::new(|stmt, r| println!("{} = {:?}", stmt, r)));
 }
 
 
-fn try_parse_exec(stmt: &str, env: &RefCell<Env>, hander: Box<Fn(&str, Option<AST>)>) {
-    match parse(stmt).and_then(|ast| eval(Some(ast.result), &env)) {
+fn try_parse_exec(stmt: &str, mut env: &mut Env, hander: Box<Fn(&str, Option<AST>)>) {
+    match parse(stmt).and_then(|ast| eval(Some(ast.result), &mut env)) {
         Ok(r) => hander(stmt, r),
         Err(e) => panic!("ERROR: {}", e)
     }
@@ -177,7 +175,7 @@ fn atom(token: &str) -> AST {
     }
 }
 
-fn eval(ast_option: Option<AST>, env: &RefCell<Env>) -> Result<Option<AST>, &'static str> {
+fn eval(ast_option: Option<AST>, env: &mut Env) -> Result<Option<AST>, &'static str> {
     debug!("eval");
     if ast_option.is_none() {
         return Ok(None);
@@ -188,8 +186,7 @@ fn eval(ast_option: Option<AST>, env: &RefCell<Env>) -> Result<Option<AST>, &'st
 
     if let AST::Symbol(s) = ast {
         debug!("ast is a symbol: {:?}", s);
-        let mut env_borrowed_mut = env.borrow_mut();
-        match env_borrowed_mut.get(&s) {
+        match env.get(&s) {
             Some(DataType::Integer(i)) => Ok(Some(AST::Integer(i))),
             Some(DataType::Float(f)) => Ok(Some(AST::Float(f))),
             Some(DataType::Symbol(ref ss)) => Ok(Some(AST::Symbol(ss.clone()))),
@@ -210,9 +207,9 @@ fn eval(ast_option: Option<AST>, env: &RefCell<Env>) -> Result<Option<AST>, &'st
                 "define" => {
                     if let Some(AST::Symbol(ref s1)) = solved_list[1] {
                         match Some(solved_list[2].clone()) {
-                            Some(Some(AST::Integer(i))) => { env.borrow_mut().variables.borrow_mut().insert(s1.clone(), DataType::Integer(i)); }
-                            Some(Some(AST::Float(f))) => { env.borrow_mut().variables.borrow_mut().insert(s1.clone(), DataType::Float(f)); }
-                            Some(Some(AST::Symbol(ref s))) => { env.borrow_mut().variables.borrow_mut().insert(s1.clone(), DataType::Symbol(s.clone())); }
+                            Some(Some(AST::Integer(i))) => { env.variables.borrow_mut().insert(s1.clone(), DataType::Integer(i)); }
+                            Some(Some(AST::Float(f))) => { env.variables.borrow_mut().insert(s1.clone(), DataType::Float(f)); }
+                            Some(Some(AST::Symbol(ref s))) => { env.variables.borrow_mut().insert(s1.clone(), DataType::Symbol(s.clone())); }
                             Some(Some(AST::Children(_))) => { return Err("should not reach here"); }
                             Some(None) | None => {}
                         };
@@ -225,13 +222,12 @@ fn eval(ast_option: Option<AST>, env: &RefCell<Env>) -> Result<Option<AST>, &'st
                     debug!("Some(AST::Symbol) but not define");
                     debug!("proc_key : {}", s0);
                     let env_shared = env.clone();
-                    let env_borrowed_mut = env.borrow_mut();
 
-                    match env_borrowed_mut.functions.borrow().get::<str>(s0) {
+                    match env_shared.functions.borrow().get::<str>(s0) {
                         Some(f) => {
                             let slice = &solved_list[1..solved_list.len()];
                             let args = slice.iter().filter(|x| x.is_some())
-                                .map(|x| eval(x.clone(), &env_shared.clone()))
+                                .map(|x| eval(x.clone(), &mut env_shared.clone()))
                                 .filter_map(|r| r.ok())
                                 .filter(|x| x.is_some())
                                 .map(|x|
