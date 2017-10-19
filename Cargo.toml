@@ -5,4 +5,4 @@ authors = ["osiutino <osiutino@gmail.com>"]
 
 [dependencies]
 log = "0.3"
-simple_logger = "0.4"
+env_logger = "0.4.3"

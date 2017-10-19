@@ -1,6 +1,6 @@
 #[macro_use]
 extern crate log;
-extern crate simple_logger;
+extern crate env_logger;
 
 use std::collections::HashMap;
 use std::cell::RefCell;
@@ -54,7 +54,7 @@ impl<'a> Env<'a> {
 }
 
 fn main() {
-    simple_logger::init().unwrap();
+    env_logger::init().unwrap();
 
     let variables_ref = RefCell::new(HashMap::new());
     variables_ref.borrow_mut().insert("pi".to_string(), DataType::Float(std::f64::consts::PI));
