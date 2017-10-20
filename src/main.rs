@@ -308,47 +308,46 @@ fn setup() -> HashMap<String, DataType> {
 
     map.insert("*".to_string(), DataType::Proc(Function(Rc::new(|vec: Vec<DataType>| {
         debug!("Function - name: {:?} - Args: {:?}", "*", vec);
-        let is_all_integers = vec.iter().all(|x| if let DataType::Integer(_) = *x { true } else { false }); // check it's not an integer list
-        let is_all_integer_or_floats = vec.iter().all(|x|
-            if let DataType::Integer(_) = *x { true } else if let DataType::Float(_) = *x { true } else { false }
+        let is_all_integers = vec.iter().all(|&ref x| if let &DataType::Integer(_) = x { true } else { false }); // check it's not an integer list
+        let is_all_integer_or_floats = vec.iter().all(|&ref x|
+            if let &DataType::Integer(_) = x { true } else if let &DataType::Float(_) = x { true } else { false }
         ); // check it's not an float list
         if !is_all_integer_or_floats {
             return Err("wrong argument datatype");
         }
 
-        let vec_boxed = Box::new(vec);
-        let vec_boxed2 = vec_boxed.clone();
-
-        let desc = vec_boxed.into_iter().map(|x|
+        let desc = vec.iter().map(|&ref x|
             match x {
-                DataType::Integer(i) => i.to_string(),
-                DataType::Float(f) => f.to_string(),
-                DataType::Symbol(_) => panic!("Something went wrong"),
-                DataType::Proc(_) => unimplemented!(),
+                &DataType::Integer(i) => i.to_string(),
+                &DataType::Float(f) => f.to_string(),
+               _ => panic!("Something went wrong"),
             }
         ).collect::<Vec<String>>().join(" x ");
         debug!("Description: {}", desc);
 
-        if is_all_integers {
-            let result = vec_boxed2.into_iter().fold(1, |o, n|
-                if let DataType::Integer(i) = n {
-                    o * i
-                } else {
-                    panic!("Something went wrong")
-                }
-            );
-            Ok(Some(DataType::Integer(result)))
-        } else if is_all_integer_or_floats {
-            let result = vec_boxed2.into_iter().fold(1.0, |o, n|
-                if let DataType::Integer(i) = n {
-                    o * (i as f64)
-                } else if let DataType::Float(f) = n {
-                    o * f
-                } else {
-                    panic!("Something went wrong")
-                }
-            );
-            Ok(Some(DataType::Float(result)))
+        if is_all_integer_or_floats {
+            Ok(Some(
+                DataType::Float(
+                    vec.iter().filter_map(|&ref x| {
+                        match x {
+                            &DataType::Integer(i) => Some(i as f64),
+                            &DataType::Float(f) => Some(f),
+                            _ => None
+                        }
+                    }).product()
+                )
+            ))
+        } else if is_all_integers {
+            Ok(Some(
+                DataType::Integer(
+                    vec.iter().filter_map(|&ref x| {
+                        match x {
+                            &DataType::Integer(i) => Some(i),
+                            _ => None
+                        }
+                    }).product()
+                )
+            ))
         } else {
             Err("Something went wrong")
         }
