@@ -1,29 +1,35 @@
-
-use std::cell::Cell;
+use std::collections::HashMap;
+use std::cell::RefCell;
 
 #[derive(Debug)]
-struct Container {
-    i: Cell<i32>
+struct Container<'a> {
+    i: &'a RefCell<HashMap<String, i32>>
 }
 
 fn recursive(mut c: Container) {
     println!("recursive");
     println!("container = {:?}", c);
-    let i = *c.i.get_mut();
-    println!("i = {}", i);
-
-    if i > 0 {
-        *c.i.get_mut() -= 1;
-        recursive(c);
+    match c.i.borrow().get(&"default".to_string()) {
+        Some(&i) => {
+            println!("i = {}", i);
+            if i > 0 {
+//                *c.i.borrow_mut() -= 1;
+                c.i.borrow_mut().insert("default".to_string(), i - 1);
+                recursive(c);
+            }
+        },
+        None => panic!("should not reach here")
     }
+
 }
 
 fn main () {
     println!("Hello World");
 
-    let x = Cell::new(10);
+    let x = RefCell::new(HashMap::new());
+    x.borrow_mut().insert("default".to_string(), 10);
     let c = Container {
-        i : x
+        i : &x
     };
     recursive(c);
 }
