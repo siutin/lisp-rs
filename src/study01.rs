@@ -1,7 +1,16 @@
 use std::fmt;
 use std::rc::Rc;
 
-struct Function(pub Rc<Fn(Vec<u32>) -> Result<Option<u32>, &'static str>>);
+#[derive(Debug)]
+#[derive(Clone)]
+enum DataType {
+    Integer(i64),
+    Float(f64),
+    Symbol(String),
+    Proc(Function)
+}
+
+struct Function(pub Rc<Fn(Vec<DataType>) -> Result<Option<DataType>, &'static str>>);
 
 impl Clone for Function {
     fn clone(&self) -> Self {
@@ -17,14 +26,24 @@ impl fmt::Debug for Function {
 }
 
 fn main () {
-    let map = Rc::new(|_| {
+    let f1 = Function(Rc::new(|_| {
         println!("Hello");
         Ok(None)
-    });
-    let f1 = Function(map);
+    }));
     let f2 = f1.clone();
+    let f3 = f1.clone();
+
     println!("{:?}", f1);
     println!("{:?}", f2);
     (f1.0)(vec![]);
     (f2.0)(vec![]);
+
+    let d1 = DataType::Symbol("some string".into());
+    println!("d1 = {:?}", d1);
+
+    let d2 = DataType::Integer(7);
+    println!("d2 = {:?}", d2);
+
+    let d3 = DataType::Proc(f1);
+    println!("d3 = {:?}", d3);
 }
