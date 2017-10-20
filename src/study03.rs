@@ -1,3 +1,5 @@
+// study "already borrowed: BorrowMutError"
+
 use std::collections::HashMap;
 use std::cell::RefCell;
 
@@ -9,17 +11,37 @@ struct Container<'a> {
 fn recursive(mut c: Container) {
     println!("recursive");
     println!("container = {:?}", c);
-    match c.i.borrow().get(&"default") {
-        Some(&i) => {
-            println!("i = {}", i);
-            if i > 0 {
-                c.i.borrow_mut().insert("default", i - 1);
-                recursive(c);
-            }
-        },
-        None => panic!("should not reach here")
-    }
 
+//// case 1 - error occur because borrow live will end after borrow_mut
+//    let borrow = c.i.borrow();
+//    let option = borrow.get(&"default");
+//    if let Some(&i2) = option {
+//        println!("i = {}", i2);
+//        if i2 > 0 {
+//            c.i.borrow_mut().insert("default", i2 - 1);
+//            recursive(c);
+//        }
+//    }
+
+//    // case 2, good, because borrow will goes out of the local scope and is no longer borrowed
+//    let i2 = {
+//        let borrow = c.i.borrow();
+//        borrow.get(&"default").unwrap_or(&0).clone()
+//    };
+//
+//    println!("i = {}", i2);
+//    if i2 > 0 {
+//        c.i.borrow_mut().insert("default", i2 - 1);
+//        recursive(c);
+//    }
+
+//    // case 3 - good, since borrow will drop immediately after unwrap
+//    let &i2 = c.i.borrow().get(&"default").unwrap_or(&0);
+//    println!("i = {}", i2);
+//    if i2 > 0 {
+//        c.i.borrow_mut().insert("default", i2 - 1);
+//        recursive(c);
+//    }
 }
 
 fn main () {
