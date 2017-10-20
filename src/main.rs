@@ -4,6 +4,8 @@ extern crate env_logger;
 
 use std::collections::HashMap;
 use std::cell::RefCell;
+use std::rc::Rc;
+use std::fmt;
 
 #[derive(Clone, Debug)]
 enum AST {
@@ -19,31 +21,53 @@ struct ReadFromTokenResult {
     result: AST
 }
 
+struct Function(pub Rc<Fn(Vec<DataType>) -> Result<Option<DataType>, &'static str>>);
+
+impl Function {
+    fn call(&self, arguments: Vec<DataType>) -> Result<Option<DataType>, &'static str> {
+        (self.0)(arguments)
+    }
+}
+
+impl Clone for Function {
+    fn clone(&self) -> Self {
+        Function(self.0.clone())
+    }
+}
+
+impl fmt::Debug for Function {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let raw = &self.0 as *const _;
+        f.debug_tuple("Function").field( &raw).finish()
+    }
+}
+
 #[derive(Clone, Debug)]
 enum DataType {
     Integer(u64),
     Float(f64),
     Symbol(String),
+    Proc(Function)
 }
 
+#[derive(Debug)]
 #[derive(Clone)]
 struct Env<'a> {
-    variables: &'a RefCell<HashMap<String, DataType>>,
-    functions: &'a RefCell<HashMap<&'a str, Box<Fn(Vec<DataType>) -> Result<Option<DataType>, &'static str>>>>,
+    local: &'a RefCell<HashMap<String, DataType>>,
     parent: Option<Box<RefCell<Env<'a>>>>
 }
 
 impl<'a> Env<'a> {
-    fn get(&mut self, key: &String) -> Option<DataType> {
-        let variables_borrow = self.variables.borrow_mut();
-        match variables_borrow.get(key) {
+    fn get(&self, key: &String) -> Option<DataType> {
+        match self.local.borrow().get::<str>(key) {
             Some(&DataType::Integer(i)) => Some(DataType::Integer(i)),
             Some(&DataType::Float(f)) => Some(DataType::Float(f)),
             Some(&DataType::Symbol(ref ss)) => Some(DataType::Symbol(ss.clone())),
+            Some(&DataType::Proc(ref p)) => Some(DataType::Proc(p.clone())),
             None => {
                 match self.parent {
                     Some(ref some_parent) => {
-                        let mut parent_borrow = some_parent.borrow_mut();
+                        let parent_borrow = some_parent.borrow();
                         parent_borrow.get(key)
                     }
                     None => None
@@ -56,16 +80,13 @@ impl<'a> Env<'a> {
 fn main() {
     env_logger::init().unwrap();
 
-    let variables_ref = RefCell::new(HashMap::new());
-    variables_ref.borrow_mut().insert("pi".to_string(), DataType::Float(std::f64::consts::PI));
+    let local = RefCell::new(setup());
 
-    // pre-defined commands experiment
-    let functions_ref = RefCell::new(setup_functions());
     let mut env = Env {
-        variables: &variables_ref,
-        functions: &functions_ref,
+        local: &local,
         parent: None
     };
+    debug!("Env: {:?}", env);
 
     try_parse_exec("(define r 10)", &mut env, Box::new(|stmt, r| println!("{} = {:?}", stmt, r)));
     try_parse_exec("(* pi (* r r))", &mut env, Box::new(|stmt, r| println!("{} = {:?}", stmt, r)));
@@ -190,6 +211,7 @@ fn eval(ast_option: Option<AST>, env: &mut Env) -> Result<Option<AST>, &'static 
             Some(DataType::Integer(i)) => Ok(Some(AST::Integer(i))),
             Some(DataType::Float(f)) => Ok(Some(AST::Float(f))),
             Some(DataType::Symbol(ref ss)) => Ok(Some(AST::Symbol(ss.clone()))),
+            Some(DataType::Proc(_)) => unimplemented!(),
             None => panic!("'symbol '{}' is not defined", s.to_string())
         }
     } else if let AST::Children(list) = ast {
@@ -206,10 +228,11 @@ fn eval(ast_option: Option<AST>, env: &mut Env) -> Result<Option<AST>, &'static 
             match s0.as_str() {
                 "define" => {
                     if let Some(AST::Symbol(ref s1)) = solved_list[1] {
+                        let env_shared = env.clone();
                         match Some(solved_list[2].clone()) {
-                            Some(Some(AST::Integer(i))) => { env.variables.borrow_mut().insert(s1.clone(), DataType::Integer(i)); }
-                            Some(Some(AST::Float(f))) => { env.variables.borrow_mut().insert(s1.clone(), DataType::Float(f)); }
-                            Some(Some(AST::Symbol(ref s))) => { env.variables.borrow_mut().insert(s1.clone(), DataType::Symbol(s.clone())); }
+                            Some(Some(AST::Integer(i))) => { env_shared.local.borrow_mut().insert(s1.clone(), DataType::Integer(i)); }
+                            Some(Some(AST::Float(f))) => { env_shared.local.borrow_mut().insert(s1.clone(), DataType::Float(f)); }
+                            Some(Some(AST::Symbol(ref s))) => { env_shared.local.borrow_mut().insert(s1.clone(), DataType::Symbol(s.clone())); }
                             Some(Some(AST::Children(_))) => { return Err("should not reach here"); }
                             Some(None) | None => {}
                         };
@@ -222,9 +245,13 @@ fn eval(ast_option: Option<AST>, env: &mut Env) -> Result<Option<AST>, &'static 
                     debug!("Some(AST::Symbol) but not define");
                     debug!("proc_key : {}", s0);
                     let env_shared = env.clone();
+                    let data_option = match env_shared.local.borrow().get::<str>(s0) {
+                        Some(d) => Some(d.clone()),
+                        None => None
+                    };
 
-                    match env_shared.functions.borrow().get::<str>(s0) {
-                        Some(f) => {
+                    match data_option {
+                        Some(DataType::Proc(ref f)) => {
                             let slice = &solved_list[1..solved_list.len()];
                             let args = slice.iter().filter(|x| x.is_some())
                                 .map(|x| eval(x.clone(), &mut env_shared.clone()))
@@ -240,16 +267,18 @@ fn eval(ast_option: Option<AST>, env: &mut Env) -> Result<Option<AST>, &'static 
                                     }
                                 ).collect::<Vec<DataType>>();
 
-                            f(args).and_then(|r| {
+
+                            f.call(args).and_then(|r| {
                                 match r {
                                     Some(DataType::Integer(i)) => Ok(Some(AST::Integer(i))),
                                     Some(DataType::Float(f)) => Ok(Some(AST::Float(f))),
                                     Some(DataType::Symbol(ref ss)) => Ok(Some(AST::Symbol(ss.clone()))),
+                                    Some(DataType::Proc(_)) => unimplemented!(),
                                     None => Ok(None)
                                 }
                             })
                         }
-                        None => panic!("Symbol'{}' is not defined", s0.to_string())
+                        Some(_) | None => panic!("Symbol'{}' is not defined", s0.to_string())
                     }
                 }
             }
@@ -262,20 +291,22 @@ fn eval(ast_option: Option<AST>, env: &mut Env) -> Result<Option<AST>, &'static 
     }
 }
 
-fn setup_functions() -> HashMap<&'static str, Box<Fn(Vec<DataType>) -> Result<Option<DataType>, &'static str>>> {
-    let mut func_hashmap: HashMap<&str, Box<Fn(Vec<DataType>) -> Result<Option<DataType>, &'static str>>> = HashMap::new();
+fn setup() -> HashMap<String, DataType> {
+    let mut map = HashMap::new();
+    map.insert("pi".to_string(), DataType::Float(std::f64::consts::PI));
 
-    func_hashmap.insert("begin", Box::new(|mut vec| {
+    // pre-defined commands
+    map.insert("begin".to_string(), DataType::Proc(Function(Rc::new(|mut vec: Vec<DataType>| {
         debug!("Function - name: {:?} - Args: {:?}", "begin", vec);
         Ok(vec.pop().clone())
-    }));
+    }))));
 
-    func_hashmap.insert("hello", Box::new(|vec| {
+    map.insert("hello".to_string(), DataType::Proc(Function(Rc::new(|vec: Vec<DataType>| {
         debug!("Function - name: {:?} - Args: {:?}", "hello", vec);
         Ok(None)
-    }));
+    }))));
 
-    func_hashmap.insert("*", Box::new(|vec| {
+    map.insert("*".to_string(), DataType::Proc(Function(Rc::new(|vec: Vec<DataType>| {
         debug!("Function - name: {:?} - Args: {:?}", "*", vec);
         let is_all_integers = vec.iter().all(|x| if let DataType::Integer(_) = *x { true } else { false }); // check it's not an integer list
         let is_all_integer_or_floats = vec.iter().all(|x|
@@ -292,7 +323,8 @@ fn setup_functions() -> HashMap<&'static str, Box<Fn(Vec<DataType>) -> Result<Op
             match x {
                 DataType::Integer(i) => i.to_string(),
                 DataType::Float(f) => f.to_string(),
-                DataType::Symbol(_) => panic!("Something went wrong")
+                DataType::Symbol(_) => panic!("Something went wrong"),
+                DataType::Proc(_) => unimplemented!(),
             }
         ).collect::<Vec<String>>().join(" x ");
         debug!("Description: {}", desc);
@@ -320,22 +352,25 @@ fn setup_functions() -> HashMap<&'static str, Box<Fn(Vec<DataType>) -> Result<Op
         } else {
             Err("Something went wrong")
         }
-    }));
+    }))));
 
-    debug!("func_hashmap start");
-    for (i, key) in func_hashmap.keys().enumerate() {
+    debug!("map start");
+    for (i, key) in map.keys().enumerate() {
         debug!("{} => {}", i + 1, key);
-        match func_hashmap.get(key) {
-            Some(f) => {
-                match f(vec![DataType::Integer(1), DataType::Integer(2), DataType::Float(5.1)]) {
+        match map.get(key) {
+            Some(&DataType::Proc(ref f)) => {
+                match f.call(vec![DataType::Integer(1), DataType::Integer(2), DataType::Float(5.1)]) {
                     Ok(result) => { debug!("Execution is good. Result: {:?}", result); }
                     Err(_) => { debug!("Execution is failed"); }
                 }
             }
+            Some(&ref o) => {
+                debug!("{:?}", o);
+            },
             None => {}
         }
     }
-    debug!("func_hashmap end");
+    debug!("map end");
 
-    return func_hashmap;
+    return map;
 }
