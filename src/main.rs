@@ -217,19 +217,19 @@ fn eval(ast_option: Option<AST>, env: &mut Env) -> Result<Option<AST>, &'static 
     } else if let AST::Children(list) = ast {
         debug!("ast is a children: {:?}", list);
 
-        let solved_list: Vec<Option<AST>> = list.into_iter().map(|x| Some(x)).collect::<_>();
-        debug!("{:?}", solved_list);
+        let optionized_list: Vec<Option<AST>> = list.into_iter().map(|x| Some(x)).collect::<_>();
+        debug!("{:?}", optionized_list);
 
-        if !(solved_list.len() > 0) {
+        if !(optionized_list.len() > 0) {
             return Err("syntax error");
         }
 
-        if let Some(AST::Symbol(ref s0)) = solved_list[0] {
+        if let Some(AST::Symbol(ref s0)) = optionized_list[0] {
             match s0.as_str() {
                 "define" => {
-                    if let Some(AST::Symbol(ref s1)) = solved_list[1] {
+                    if let Some(AST::Symbol(ref s1)) = optionized_list[1] {
                         let env_shared = env.clone();
-                        match Some(solved_list[2].clone()) {
+                        match Some(optionized_list[2].clone()) {
                             Some(Some(AST::Integer(i))) => { env_shared.local.borrow_mut().insert(s1.clone(), DataType::Integer(i)); }
                             Some(Some(AST::Float(f))) => { env_shared.local.borrow_mut().insert(s1.clone(), DataType::Float(f)); }
                             Some(Some(AST::Symbol(ref s))) => { env_shared.local.borrow_mut().insert(s1.clone(), DataType::Symbol(s.clone())); }
@@ -252,7 +252,7 @@ fn eval(ast_option: Option<AST>, env: &mut Env) -> Result<Option<AST>, &'static 
 
                     match data_option {
                         Some(DataType::Proc(ref f)) => {
-                            let slice = &solved_list[1..solved_list.len()];
+                            let slice = &optionized_list[1..optionized_list.len()];
                             let args = slice.iter().filter(|x| x.is_some())
                                 .map(|x| eval(x.clone(), &mut env_shared.clone()))
                                 .filter_map(|r| r.ok())
