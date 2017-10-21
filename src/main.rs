@@ -336,8 +336,9 @@ fn setup() -> HashMap<String, DataType> {
         Ok(vec.pop().clone())
     }))));
 
-    map.insert("hello".to_string(), DataType::Proc(Function(Rc::new(|vec: Vec<DataType>| {
+    map.insert("print".to_string(), DataType::Proc(Function(Rc::new(|vec: Vec<DataType>| {
         debug!("Function - name: {:?} - Args: {:?}", "hello", vec);
+        print!("{:?}", vec);
         Ok(None)
     }))));
 
