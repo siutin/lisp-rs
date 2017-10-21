@@ -2,49 +2,28 @@
 // Original from https://stackoverflow.com/questions/29504873/unpack-a-take-iterator-into-a-tuple/43967765#43967765
 
 macro_rules! tuplet {
-     { ($y:ident $(, $x:ident)*) = $v:expr } => {
-        let ($y,$($x),*) = tuplet!($v ; 1 ; ($($x),*) ; ($v.get(0)) ); };
-
-     { ($y:ident , * $x:ident) = $v:expr } => {
-        let ($y, $x) = {
-            if let Some((x,y)) = $v.split_first() {
-                if y.is_empty() {
-                    (Some(x),None)
-                } else {
-                    (Some(x),Some(y))
-                }
-            } else {
-                (None, None)
-            }
-        };
-    };
-
-    { ($y:ident $(, $x:ident)* , * $z:ident) = $v:expr } => {
-        let ($y,$($x),*, $z) = tuplet!($v ; 1 ; ($($x),*) ; ($v.get(0)) ; $z );
-    };
-
-    { $v:expr ; $j:expr ; ($y:ident $(, $x:ident)*) ; ($($a:expr),*) ; $z:ident } => {
-        tuplet!( $v ; $j+1 ; ($($x),*) ; ($($a),*,$v.get($j)) ; $z )
-    };
-
-    { $v:expr ; $j:expr ; ($y:ident $(, $x:ident)*) ; ($($a:expr),*) } => {
-        tuplet!( $v ; $j+1 ; ($($x),*) ; ($($a),*,$v.get($j)) ) };
-
-    { $v:expr ; $j:expr ; () ; $accu:expr } => { $accu };
-    { $v:expr ; $j:expr ; () ; ($($a:expr),*) ; $z:expr } => {
-       {
-        if $v.len() >= $j {
-            let remain = ($v.len() - $j) + 1;
-            if remain > 0 {
-                ($($a),*, Some(&$v[$j..]))
-            } else {
-                ($($a),*, None)
-            }
+ { ($y:ident $(, $x:ident)*) = $v:expr } => {
+    let ($y,$($x),*, _) = tuplet!($v ; 1 ; ($($x),*) ; ($v.get(0)) ); };
+ { ($y:ident , * $x:ident) = $v:expr } => {
+    let ($y,$x) = tuplet!($v ; 1 ; () ; ($v.get(0)) ); };
+ { ($y:ident $(, $x:ident)* , * $z:ident) = $v:expr } => {
+    let ($y,$($x),*, $z) = tuplet!($v ; 1 ; ($($x),*) ; ($v.get(0)) ); };
+ { $v:expr ; $j:expr ; ($y:ident $(, $x:ident)*) ; ($($a:expr),*)  } => {
+    tuplet!( $v ; $j+1 ; ($($x),*) ; ($($a),*,$v.get($j)) ) };
+ { $v:expr ; $j:expr ; () ; ($($a:expr),*) } => {
+   {
+    if $v.len() >= $j {
+        let remain = ($v.len() - $j) + 1;
+        if remain > 0 {
+            ($($a),*, Some(&$v[$j..]))
         } else {
             ($($a),*, None)
         }
-       }
+    } else {
+        ($($a),*, None)
     }
+   }
+ }
 }
 
 
