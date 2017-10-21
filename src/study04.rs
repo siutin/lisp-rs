@@ -26,12 +26,19 @@ macro_rules! tuplet {
  }
 }
 
+#[derive(Debug)]
+enum Ball {
+    Red(i64),
+    Green(f64),
+    Blue(i64)
+}
 
 fn main() {
     ex1();
     ex2();
     ex3();
     ex4();
+    ex5();
 }
 
 fn ex1() {
@@ -79,3 +86,20 @@ fn ex4() {
     println!("c = {:?}", c);
     println!("d = {:?}", d);
 }
+
+fn ex5() {
+    println!("=> ex5");
+    let v = vec![Ball::Red(1), Ball::Green(2.2), Ball::Blue(3)];
+    tuplet!((a,b,*c) = v); // enum support
+
+    println!("a = {:?}", a);
+    println!("b = {:?}", b);
+    println!("c = {:?}", c);
+
+    if let (Some(&Ball::Red(r)), Some(&Ball::Green(g))) = (a, b) {
+        println!("r={}, g={}", r, g)
+    } else {
+        println!("None")
+    }
+}
+
