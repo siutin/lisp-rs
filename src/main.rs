@@ -217,28 +217,28 @@ fn eval(ast_option: Option<AST>, env: &mut Env) -> Result<Option<AST>, &'static 
     } else if let AST::Children(list) = ast {
         debug!("ast is a children: {:?}", list);
 
-        let optionized_list: Vec<Option<AST>> = list.into_iter().map(|x| Some(x)).collect::<_>();
-        debug!("{:?}", optionized_list);
-
-        if !(optionized_list.len() > 0) {
+        if list.is_empty() {
             return Err("syntax error");
         }
 
-        if let Some(AST::Symbol(ref s0)) = optionized_list[0] {
+        if let Some((&AST::Symbol(ref s0), rest0)) = list.split_first() {
             match s0.as_str() {
                 "define" => {
-                    if let Some(AST::Symbol(ref s1)) = optionized_list[1] {
+                    if let Some((&AST::Symbol(ref s1), rest1)) = rest0.split_first() {
                         let env_shared = env.clone();
-                        match Some(optionized_list[2].clone()) {
-                            Some(Some(AST::Integer(i))) => { env_shared.local.borrow_mut().insert(s1.clone(), DataType::Integer(i)); }
-                            Some(Some(AST::Float(f))) => { env_shared.local.borrow_mut().insert(s1.clone(), DataType::Float(f)); }
-                            Some(Some(AST::Symbol(ref s))) => { env_shared.local.borrow_mut().insert(s1.clone(), DataType::Symbol(s.clone())); }
-                            Some(Some(AST::Children(_))) => { return Err("should not reach here"); }
-                            Some(None) | None => {}
-                        };
-                        return Ok(None);
-                    } else {
-                        return Err("definition name must be a symbol");
+                        if let Some((&ref a2, _)) = rest1.split_first() {
+                            match a2.clone() {
+                                AST::Integer(i) => { env_shared.local.borrow_mut().insert(s1.clone(), DataType::Integer(i)); }
+                                AST::Float(f) => { env_shared.local.borrow_mut().insert(s1.clone(), DataType::Float(f)); }
+                                AST::Symbol(ref s) => { env_shared.local.borrow_mut().insert(s1.clone(), DataType::Symbol(s.clone())); }
+                                AST::Children(_) => unimplemented!()
+                            }
+                            return Ok(None)
+                        }
+                        return Err("define: missing value");
+                    }
+                    else {
+                        return Err("define: name must be a Symbol");
                     }
                 }
                 _ => {
@@ -252,9 +252,9 @@ fn eval(ast_option: Option<AST>, env: &mut Env) -> Result<Option<AST>, &'static 
 
                     match data_option {
                         Some(DataType::Proc(ref f)) => {
-                            let slice = &optionized_list[1..optionized_list.len()];
-                            let args = slice.iter().filter(|x| x.is_some())
-                                .map(|x| eval(x.clone(), &mut env_shared.clone()))
+                            let slice = &list[1..list.len()];
+                            let args = slice.iter()
+                                .map(|x| eval(Some(x.clone()), &mut env_shared.clone()))
                                 .filter_map(|r| r.ok())
                                 .filter(|x| x.is_some())
                                 .map(|x|
