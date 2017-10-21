@@ -6,6 +6,8 @@ use std::collections::HashMap;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::fmt;
+use std::io;
+use std::io::Write;
 
 macro_rules! tuplet {
  { ($y:ident $(, $x:ident)*) = $v:expr } => {
@@ -113,11 +115,23 @@ fn main() {
     };
     debug!("Env: {:?}", env);
 
-    try_parse_exec("(define r 10)", &mut env, Box::new(|stmt, r| println!("{} = {:?}", stmt, r)));
-    try_parse_exec("(* pi (* r r))", &mut env, Box::new(|stmt, r| println!("{} = {:?}", stmt, r)));
-    try_parse_exec("(begin (define r 10) (* pi (* r r)))", &mut env, Box::new(|stmt, r| println!("{} = {:?}", stmt, r)));
+    println!("Welcome to scheme-rs");
+    repl(&mut env);
 }
 
+fn repl(mut env: &mut Env) {
+    loop {
+        print!("scheme=> ");
+        io::stdout().flush().expect("cannot flush screen");
+        let mut input = String::new();
+        io::stdin().read_line(&mut input).expect("cannot read input");
+        match parse(input.as_str()).and_then(|ast| eval(Some(ast.result), &mut env)) {
+            Ok(Some(d)) => println!("{:?}", d),
+            Ok(None) => {}
+            Err(e) => println!("ERROR: {}", e)
+        }
+    }
+}
 
 fn try_parse_exec(stmt: &str, mut env: &mut Env, hander: Box<Fn(&str, Option<AST>)>) {
     match parse(stmt).and_then(|ast| eval(Some(ast.result), &mut env)) {
@@ -374,23 +388,70 @@ fn setup() -> HashMap<String, DataType> {
         }
     }))));
 
-    debug!("map start");
-    for (i, key) in map.keys().enumerate() {
-        debug!("{} => {}", i + 1, key);
-        match map.get(key) {
-            Some(&DataType::Proc(ref f)) => {
-                match f.call(vec![DataType::Integer(1), DataType::Integer(2), DataType::Float(5.1)]) {
-                    Ok(result) => { debug!("Execution is good. Result: {:?}", result); }
-                    Err(_) => { debug!("Execution is failed"); }
-                }
-            }
-            Some(&ref o) => {
-                debug!("{:?}", o);
-            },
-            None => {}
+    map.insert("+".to_string(), DataType::Proc(Function(Rc::new(|vec: Vec<DataType>| {
+        debug!("Function - name: {:?} - Args: {:?}", "+", vec);
+        let is_all_integers = vec.iter().all(|&ref x| if let &DataType::Integer(_) = x { true } else { false }); // check it's not an integer list
+        let is_all_integer_or_floats = vec.iter().all(|&ref x|
+            if let &DataType::Integer(_) = x { true } else if let &DataType::Float(_) = x { true } else { false }
+        ); // check it's not an float list
+        if !is_all_integer_or_floats {
+            return Err("wrong argument datatype");
         }
-    }
-    debug!("map end");
+
+        let desc = vec.iter().map(|&ref x|
+            match x {
+                &DataType::Integer(i) => i.to_string(),
+                &DataType::Float(f) => f.to_string(),
+                _ => panic!("Something went wrong"),
+            }
+        ).collect::<Vec<String>>().join(" + ");
+        debug!("Description: {}", desc);
+
+        if is_all_integer_or_floats {
+            Ok(Some(
+                DataType::Float(
+                    vec.iter().filter_map(|&ref x| {
+                        match x {
+                            &DataType::Integer(i) => Some(i as f64),
+                            &DataType::Float(f) => Some(f),
+                            _ => None
+                        }
+                    }).sum()
+                )
+            ))
+        } else if is_all_integers {
+            Ok(Some(
+                DataType::Integer(
+                    vec.iter().filter_map(|&ref x| {
+                        match x {
+                            &DataType::Integer(i) => Some(i),
+                            _ => None
+                        }
+                    }).sum()
+                )
+            ))
+        } else {
+            Err("Something went wrong")
+        }
+    }))));
+
+//    debug!("map start");
+//    for (i, key) in map.keys().enumerate() {
+//        debug!("{} => {}", i + 1, key);
+//        match map.get(key) {
+//            Some(&DataType::Proc(ref f)) => {
+//                match f.call(vec![DataType::Integer(1), DataType::Integer(2), DataType::Float(5.1)]) {
+//                    Ok(result) => { debug!("Execution is good. Result: {:?}", result); }
+//                    Err(_) => { debug!("Execution is failed"); }
+//                }
+//            }
+//            Some(&ref o) => {
+//                debug!("{:?}", o);
+//            },
+//            None => {}
+//        }
+//    }
+//    debug!("map end");
 
     return map;
 }
