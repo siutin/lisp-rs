@@ -133,13 +133,6 @@ fn repl(mut env: &mut Env) {
     }
 }
 
-fn try_parse_exec(stmt: &str, mut env: &mut Env, hander: Box<Fn(&str, Option<AST>)>) {
-    match parse(stmt).and_then(|ast| eval(Some(ast.result), &mut env)) {
-        Ok(r) => hander(stmt, r),
-        Err(e) => panic!("ERROR: {}", e)
-    }
-}
-
 fn parse(program: &str) -> Result<ReadFromTokenResult, &'static str> {
     debug!("program: {}", program);
     let tokens = tokenize(program);
