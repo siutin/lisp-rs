@@ -151,29 +151,16 @@ fn parse(program: &str) -> Result<ReadFromTokenResult, &'static str> {
 
 fn tokenize(program: &str) -> Vec<String>
 {
-    let mut iterator = Box::new(program.chars());
+    let iterator = Box::new(program.chars());
     let count = iterator.clone().count();
-    let mut vec: Vec<char> = Vec::with_capacity(count);
-
-    loop {
-        match iterator.next() {
-            Some(x) => {
-                if x == '(' {
-                    vec.push(' ');
-                    vec.push('(');
-                    vec.push(' ');
-                } else if x == ')' {
-                    vec.push(' ');
-                    vec.push(')');
-                    vec.push(' ');
-                } else {
-                    vec.push(x);
-                }
-            }
-            None => { break; }
+    let vec = iterator.fold(Vec::with_capacity(count), |mut acc, x| {
+        if x == '(' || x == ')' {
+            acc.extend(vec![' ', x, ' '])
+        } else {
+            acc.push(x)
         }
-    }
-
+        acc
+    });
     let s: String = vec.into_iter().collect();
     let ss: Vec<String> = s.split_whitespace().map(|x| x.to_string()).collect();
     ss
