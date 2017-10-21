@@ -36,7 +36,7 @@ macro_rules! tuplet {
 
 #[derive(Clone, Debug)]
 enum AST {
-    Integer(u64),
+    Integer(i64),
     Float(f64),
     Symbol(String),
     Children(Vec<AST>)
@@ -71,7 +71,7 @@ impl fmt::Debug for Function {
 
 #[derive(Clone, Debug)]
 enum DataType {
-    Integer(u64),
+    Integer(i64),
     Float(f64),
     Symbol(String),
     Proc(Function)
@@ -223,7 +223,7 @@ fn read_from_tokens(mut tokens: Vec<String>) -> Result<ReadFromTokenResult, &'st
 }
 
 fn atom(token: &str) -> AST {
-    let to_int = token.parse::<u64>();
+    let to_int = token.parse::<i64>();
     let to_float = token.parse::<f64>();
 
     if to_int.is_ok() {
