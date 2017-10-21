@@ -14,6 +14,9 @@ path = "src/study02.rs"
 name = "study03"
 path = "src/study03.rs"
 
+[[bin]]
+name = "study04"
+path = "src/study04.rs"
 
 [package]
 name = "scheme-rs"
