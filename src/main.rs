@@ -343,10 +343,9 @@ fn setup() -> HashMap<String, DataType> {
 
     map.insert("*".to_string(), DataType::Proc(Function(Rc::new(|vec: Vec<DataType>| {
         debug!("Function - name: {:?} - Args: {:?}", "*", vec);
-        let is_all_integers = vec.iter().all(|&ref x| if let &DataType::Integer(_) = x { true } else { false }); // check it's not an integer list
         let is_all_integer_or_floats = vec.iter().all(|&ref x|
             if let &DataType::Integer(_) = x { true } else if let &DataType::Float(_) = x { true } else { false }
-        ); // check it's not an float list
+        );
         if !is_all_integer_or_floats {
             return Err("wrong argument datatype");
         }
@@ -360,40 +359,34 @@ fn setup() -> HashMap<String, DataType> {
         ).collect::<Vec<String>>().join(" x ");
         debug!("Description: {}", desc);
 
-        if is_all_integer_or_floats {
-            Ok(Some(
-                DataType::Float(
-                    vec.iter().filter_map(|&ref x| {
-                        match x {
-                            &DataType::Integer(i) => Some(i as f64),
-                            &DataType::Float(f) => Some(f),
-                            _ => None
-                        }
-                    }).product()
-                )
-            ))
-        } else if is_all_integers {
-            Ok(Some(
-                DataType::Integer(
-                    vec.iter().filter_map(|&ref x| {
-                        match x {
-                            &DataType::Integer(i) => Some(i),
-                            _ => None
-                        }
-                    }).product()
-                )
-            ))
+        let data = if is_all_integer_or_floats {
+            DataType::Float(
+                vec.iter().filter_map(|&ref x| {
+                    match x {
+                        &DataType::Integer(i) => Some(i as f64),
+                        &DataType::Float(f) => Some(f),
+                        _ => None
+                    }
+                }).product()
+            )
         } else {
-            Err("Something went wrong")
-        }
+            DataType::Integer(
+                vec.iter().filter_map(|&ref x| {
+                    match x {
+                        &DataType::Integer(i) => Some(i),
+                        _ => None
+                    }
+                }).product()
+            )
+        };
+        Ok(Some(data))
     }))));
 
     map.insert("+".to_string(), DataType::Proc(Function(Rc::new(|vec: Vec<DataType>| {
         debug!("Function - name: {:?} - Args: {:?}", "+", vec);
-        let is_all_integers = vec.iter().all(|&ref x| if let &DataType::Integer(_) = x { true } else { false }); // check it's not an integer list
         let is_all_integer_or_floats = vec.iter().all(|&ref x|
             if let &DataType::Integer(_) = x { true } else if let &DataType::Float(_) = x { true } else { false }
-        ); // check it's not an float list
+        );
         if !is_all_integer_or_floats {
             return Err("wrong argument datatype");
         }
@@ -402,37 +395,115 @@ fn setup() -> HashMap<String, DataType> {
             match x {
                 &DataType::Integer(i) => i.to_string(),
                 &DataType::Float(f) => f.to_string(),
-                _ => panic!("Something went wrong"),
+                _ => unreachable!(),
             }
         ).collect::<Vec<String>>().join(" + ");
         debug!("Description: {}", desc);
 
-        if is_all_integer_or_floats {
-            Ok(Some(
-                DataType::Float(
-                    vec.iter().filter_map(|&ref x| {
-                        match x {
-                            &DataType::Integer(i) => Some(i as f64),
-                            &DataType::Float(f) => Some(f),
-                            _ => None
-                        }
-                    }).sum()
-                )
-            ))
-        } else if is_all_integers {
-            Ok(Some(
-                DataType::Integer(
-                    vec.iter().filter_map(|&ref x| {
-                        match x {
-                            &DataType::Integer(i) => Some(i),
-                            _ => None
-                        }
-                    }).sum()
-                )
-            ))
+        let data = if is_all_integer_or_floats {
+            DataType::Float(
+                vec.iter().filter_map(|&ref x| {
+                    match x {
+                        &DataType::Integer(i) => Some(i as f64),
+                        &DataType::Float(f) => Some(f),
+                        _ => None
+                    }
+                }).sum()
+            )
         } else {
-            Err("Something went wrong")
+            DataType::Integer(
+                vec.iter().filter_map(|&ref x| {
+                    match x {
+                        &DataType::Integer(i) => Some(i),
+                        _ => None
+                    }
+                }).sum()
+            )
+        };
+        Ok(Some(data))
+    }))));
+
+    map.insert("-".to_string(), DataType::Proc(Function(Rc::new(|vec: Vec<DataType>| {
+        debug!("Function - name: {:?} - Args: {:?}", "+", vec);
+        let is_all_integer_or_floats = vec.iter().all(|&ref x|
+            if let &DataType::Integer(_) = x { true } else if let &DataType::Float(_) = x { true } else { false }
+        );
+        if !is_all_integer_or_floats {
+            return Err("wrong argument datatype");
         }
+
+        let desc = vec.iter().map(|&ref x|
+            match x {
+                &DataType::Integer(i) => i.to_string(),
+                &DataType::Float(f) => f.to_string(),
+                _ => unreachable!(),
+            }
+        ).collect::<Vec<String>>().join(" - ");
+        debug!("Description: {}", desc);
+
+        let data = if is_all_integer_or_floats {
+            let value: f64 = vec.iter().filter_map(|&ref x| {
+                match x {
+                    &DataType::Integer(i) => Some(i as f64),
+                    &DataType::Float(f) => Some(f),
+                    _ => None
+                }
+            }).sum();
+            DataType::Float(value * -1.0)
+        } else {
+            let value: i64 = vec.iter().filter_map(|&ref x| {
+                match x {
+                    &DataType::Integer(i) => Some(i),
+                    _ => None
+                }
+            }).sum();
+            DataType::Integer(value * -1)
+        };
+        Ok(Some(data))
+    }))));
+
+    map.insert("/".to_string(), DataType::Proc(Function(Rc::new(|vec: Vec<DataType>| {
+        debug!("Function - name: {:?} - Args: {:?}", "/", vec);
+        let is_all_integer_or_floats = vec.iter().all(|&ref x|
+            if let &DataType::Integer(_) = x { true } else if let &DataType::Float(_) = x { true } else { false }
+        );
+        if !is_all_integer_or_floats {
+            return Err("wrong argument datatype");
+        }
+
+        let desc = vec.iter().map(|&ref x|
+            match x {
+                &DataType::Integer(i) => i.to_string(),
+                &DataType::Float(f) => f.to_string(),
+                _ => unreachable!(),
+            }
+        ).collect::<Vec<String>>().join(" / ");
+        debug!("Description: {}", desc);
+
+        let data = if is_all_integer_or_floats {
+            let value: f64 = vec.iter().filter_map(|&ref x| {
+                match x {
+                    &DataType::Integer(i) => Some(i as f64),
+                    &DataType::Float(f) => Some(f),
+                    _ => None
+                }
+            }).fold(1.0, |acc, x| {
+                acc / x
+            });
+
+            DataType::Float(value)
+        } else {
+            let value: i64 = vec.iter().filter_map(|&ref x| {
+                match x {
+                    &DataType::Integer(i) => Some(i),
+                    _ => None
+                }
+            }).fold(1, |acc, x| {
+                acc / x
+            });
+            DataType::Integer(value)
+        };
+        Ok(Some(data))
     }))));
 
 //    debug!("map start");
