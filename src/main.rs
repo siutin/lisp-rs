@@ -128,7 +128,7 @@ fn repl(mut env: &mut Env) {
         match parse(input.as_str()).and_then(|ast| eval(Some(ast.result), &mut env)) {
             Ok(Some(d)) => println!("{:?}", d),
             Ok(None) => {}
-            Err(e) => println!("ERROR: {}", e)
+            Err(e) => println!("error: {}", e)
         }
     }
 }
@@ -251,7 +251,7 @@ fn eval(ast_option: Option<AST>, env: &mut Env) -> Result<Option<AST>, &'static 
             Some(DataType::Float(f)) => Ok(Some(AST::Float(f))),
             Some(DataType::Symbol(ref ss)) => Ok(Some(AST::Symbol(ss.clone()))),
             Some(DataType::Proc(_)) => unimplemented!(),
-            None => panic!("'symbol '{}' is not defined", s.to_string())
+            None => Err("symbol is not defined.")
         }
     } else if let AST::Children(list) = ast {
         debug!("ast is a children: {:?}", list);
@@ -297,8 +297,8 @@ fn eval(ast_option: Option<AST>, env: &mut Env) -> Result<Option<AST>, &'static 
                                         Some(AST::Integer(i)) => DataType::Integer(i),
                                         Some(AST::Float(f)) => DataType::Float(f),
                                         Some(AST::Symbol(s)) => DataType::Symbol(s),
-                                        Some(AST::Children(_)) => panic!("Should I care AST::Children?"),
-                                        None => panic!("Should not be none, I guess.")
+                                        Some(AST::Children(_)) => unimplemented!(),
+                                        None => unreachable!()
                                     }
                                 ).collect::<Vec<DataType>>();
 
@@ -313,7 +313,7 @@ fn eval(ast_option: Option<AST>, env: &mut Env) -> Result<Option<AST>, &'static 
                                 }
                             })
                         }
-                        Some(_) | None => panic!("Symbol'{}' is not defined", s0.to_string())
+                        Some(_) | None => Err("Symbol is not defined.")
                     }
                 }
             }
@@ -355,7 +355,7 @@ fn setup() -> HashMap<String, DataType> {
             match x {
                 &DataType::Integer(i) => i.to_string(),
                 &DataType::Float(f) => f.to_string(),
-               _ => panic!("Something went wrong"),
+                _ => panic!("Something went wrong"),
             }
         ).collect::<Vec<String>>().join(" x ");
         debug!("Description: {}", desc);
