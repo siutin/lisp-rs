@@ -17,10 +17,10 @@ macro_rules! tuplet {
 };
 
  { ($y:ident $(, $x:ident)* , * $z:ident) = $v:expr } => {
-    let ($y, $($x),*) = tuplet!($v ; 1 ; ($($x),*) ; ($v.get(0)) );
+    tuplet!(($y, $($x),*) = $v);
     let $z = {
-       println!("{:?}",&$v[1..]);
-       tuplet!((xy,*z)= &$v[1..]);
+       println!("{:?}",&$v[2..]);
+       tuplet!((xy,*z)= &$v[2..]);
        z
     };
 };
@@ -33,10 +33,10 @@ macro_rules! tuplet {
 
 fn main() {
     let v = vec![1, 2, 3, 4, 5, 6, 7, 8, 9];
-    tuplet!((a,b,*c) = v);
+    tuplet!((a,b,c,*d) = v);
 
     println!("a = {:?}", a);
     println!("b = {:?}", b);
     println!("c = {:?}", c);
-    //    println!("d = {:?}", d);
+    println!("d = {:?}", d);
 }
