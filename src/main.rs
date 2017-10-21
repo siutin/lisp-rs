@@ -7,6 +7,31 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::fmt;
 
+macro_rules! tuplet {
+ { ($y:ident $(, $x:ident)*) = $v:expr } => {
+    let ($y,$($x),*, _) = tuplet!($v ; 1 ; ($($x),*) ; ($v.get(0)) ); };
+ { ($y:ident , * $x:ident) = $v:expr } => {
+    let ($y,$x) = tuplet!($v ; 1 ; () ; ($v.get(0)) ); };
+ { ($y:ident $(, $x:ident)* , * $z:ident) = $v:expr } => {
+    let ($y,$($x),*, $z) = tuplet!($v ; 1 ; ($($x),*) ; ($v.get(0)) ); };
+ { $v:expr ; $j:expr ; ($y:ident $(, $x:ident)*) ; ($($a:expr),*)  } => {
+    tuplet!( $v ; $j+1 ; ($($x),*) ; ($($a),*,$v.get($j)) ) };
+ { $v:expr ; $j:expr ; () ; ($($a:expr),*) } => {
+   {
+    if $v.len() >= $j {
+        let remain = $v.len() - $j;
+        if remain > 0 {
+            ($($a),*, Some(&$v[$j..]))
+        } else {
+            ($($a),*, None)
+        }
+    } else {
+        ($($a),*, None)
+    }
+   }
+ }
+}
+
 #[derive(Clone, Debug)]
 enum AST {
     Integer(u64),
@@ -221,25 +246,21 @@ fn eval(ast_option: Option<AST>, env: &mut Env) -> Result<Option<AST>, &'static 
             return Err("syntax error");
         }
 
-        if let Some((&AST::Symbol(ref s0), rest0)) = list.split_first() {
+        tuplet!((s0,s1,s2) = list);
+
+        if let Some(&AST::Symbol(ref s0)) = s0 {
             match s0.as_str() {
                 "define" => {
-                    if let Some((&AST::Symbol(ref s1), rest1)) = rest0.split_first() {
-                        let env_shared = env.clone();
-                        if let Some((&ref a2, _)) = rest1.split_first() {
-                            match a2.clone() {
-                                AST::Integer(i) => { env_shared.local.borrow_mut().insert(s1.clone(), DataType::Integer(i)); }
-                                AST::Float(f) => { env_shared.local.borrow_mut().insert(s1.clone(), DataType::Float(f)); }
-                                AST::Symbol(ref s) => { env_shared.local.borrow_mut().insert(s1.clone(), DataType::Symbol(s.clone())); }
-                                AST::Children(_) => unimplemented!()
-                            }
-                            return Ok(None)
+                    if let (Some(&AST::Symbol(ref s1)), Some(&ref a2)) = (s1, s2) {
+                        match a2.clone() {
+                            AST::Integer(i) => { env.clone().local.borrow_mut().insert(s1.clone(), DataType::Integer(i)); }
+                            AST::Float(f) => { env.clone().local.borrow_mut().insert(s1.clone(), DataType::Float(f)); }
+                            AST::Symbol(ref s) => { env.clone().local.borrow_mut().insert(s1.clone(), DataType::Symbol(s.clone())); }
+                            AST::Children(_) => unimplemented!()
                         }
-                        return Err("define: missing value");
+                        return Ok(None);
                     }
-                    else {
-                        return Err("define: name must be a Symbol");
-                    }
+                    return Err("wrong syntax for define expression");
                 }
                 _ => {
                     debug!("Some(AST::Symbol) but not define");
@@ -283,7 +304,7 @@ fn eval(ast_option: Option<AST>, env: &mut Env) -> Result<Option<AST>, &'static 
                 }
             }
         } else {
-            panic!("should not reach here");
+            unreachable!();
         }
     } else {
         debug!("ast is not a symbol/children");
