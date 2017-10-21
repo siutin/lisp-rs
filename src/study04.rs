@@ -13,7 +13,7 @@ macro_rules! tuplet {
  { $v:expr ; $j:expr ; () ; ($($a:expr),*) } => {
    {
     if $v.len() >= $j {
-        let remain = ($v.len() - $j) + 1;
+        let remain = $v.len() - $j;
         if remain > 0 {
             ($($a),*, Some(&$v[$j..]))
         } else {
