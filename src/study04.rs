@@ -19,8 +19,8 @@ macro_rules! tuplet {
  { ($y:ident $(, $x:ident)* , * $z:ident) = $v:expr } => {
     let ($y, $($x),*) = tuplet!($v ; 1 ; ($($x),*) ; ($v.get(0)) );
     let $z = {
-       println!("{:?}",&$v[2..]);
-       tuplet!((xy,*z)= &$v[2..]);
+       println!("{:?}",&$v[1..]);
+       tuplet!((xy,*z)= &$v[1..]);
        z
     };
 };
