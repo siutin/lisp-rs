@@ -217,20 +217,14 @@ fn atom(token: &str) -> AST {
 
 fn eval(ast_option: Option<AST>, env: &mut Env) -> Result<Option<DataType>, &'static str> {
     debug!("eval");
-    if ast_option.is_none() {
-        return Ok(None);
-    }
-
-    let ast = ast_option.unwrap();
-    debug!("ast => {:?}", ast);
-
-    if let AST::Symbol(s) = ast {
+    debug!("{:?}", ast_option);
+    if let Some(AST::Symbol(s)) = ast_option {
         debug!("ast is a symbol: {:?}", s);
         match env.get(&s) {
             Some(data) => Ok(Some(data)),
             None => Err("symbol is not defined.")
         }
-    } else if let AST::Children(list) = ast {
+    } else if let Some(AST::Children(list)) = ast_option {
         debug!("ast is a children: {:?}", list);
 
         if list.is_empty() {
@@ -288,15 +282,14 @@ fn eval(ast_option: Option<AST>, env: &mut Env) -> Result<Option<DataType>, &'st
             unreachable!();
         }
     } else {
-
         debug!("ast is not a symbol/children");
-        let data = match ast {
-            AST::Integer(i) => DataType::Integer(i),
-            AST::Float(f) => DataType::Float(f),
-            AST::Symbol(_) | AST::Children(_) => unreachable!(),
+        let data = match ast_option {
+            Some(AST::Integer(i)) => Some(DataType::Integer(i)),
+            Some(AST::Float(f)) => Some(DataType::Float(f)),
+            Some(_) => unreachable!(),
+            None => None
         };
-
-        Ok(Some(data))
+        Ok(data)
     }
 }
 
