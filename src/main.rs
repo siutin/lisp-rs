@@ -499,6 +499,48 @@ fn setup() -> HashMap<String, DataType> {
         Ok(Some(DataType::List(vec)))
     }))));
 
+    map.insert("car".to_string(), DataType::Proc(Function(Rc::new(|vec: Vec<DataType>| {
+        debug!("Function - name: {:?} - Args: {:?}", "car", vec);
+        if vec.len() != 1 {
+            return Err("car function requires one argument only");
+        }
+        let value_option = vec.first();
+        if value_option.is_none() {
+            return Err("car function unknown argument type");
+        }
+        match value_option.unwrap() {
+            &DataType::List(ref vec) => {
+                let value = vec.first();
+                if value.is_some() {
+                    Ok(Some(DataType::from(value.unwrap().clone())))
+                } else {
+                    Err("car function requires a non-empty list")
+                }
+            },
+            _ => Err("car function requires an argument of type 'list'")
+        }
+    }))));
+
+    map.insert("cdr".to_string(), DataType::Proc(Function(Rc::new(|vec: Vec<DataType>| {
+        debug!("Function - name: {:?} - Args: {:?}", "cdr", vec);
+        if vec.len() != 1 {
+            return Err("cdr function requires one argument only");
+        }
+        let value_option = vec.first();
+        if value_option.is_none() {
+            return Err("cdr function unknown argument type");
+        }
+        match value_option.unwrap() {
+            &DataType::List(ref vec) => {
+                if vec.len() > 0 {
+                    Ok(Some(DataType::List((&vec[1..]).to_vec())))
+                } else {
+                    Err("cdr function requires a non-empty list")
+                }
+            },
+            _ => Err("cdr function requires an argument of type 'list'")
+        }
+    }))));
     //    debug!("map start");
     //    for (i, key) in map.keys().enumerate() {
     //        debug!("{} => {}", i + 1, key);
