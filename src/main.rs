@@ -169,11 +169,11 @@ fn read_from_tokens(mut tokens: Vec<String>) -> Result<ReadFromTokenResult, &'st
             let mut vec: Vec<AST> = vec![];
             let mut tmp_tokens = tokens.clone();
 
-            if !(tmp_tokens.len() > 0) {
+            if tmp_tokens.is_empty() {
                 return Err("syntax error");
             }
 
-            while tmp_tokens[0] != ")" {
+            while !tmp_tokens.is_empty() && tmp_tokens.first().unwrap() != ")" {
                 match read_from_tokens(tmp_tokens.clone()) {
                     Ok(data) => {
                         vec.push(data.result);
@@ -181,6 +181,9 @@ fn read_from_tokens(mut tokens: Vec<String>) -> Result<ReadFromTokenResult, &'st
                     }
                     Err(e) => { return Err(e); }
                 }
+            }
+            if tmp_tokens.is_empty() {
+                return Err("syntax error");
             }
             tmp_tokens.remove(0);
             Ok(
