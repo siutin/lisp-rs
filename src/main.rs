@@ -215,7 +215,7 @@ fn atom(token: &str) -> AST {
     }
 }
 
-fn eval(ast_option: Option<AST>, env: &mut Env) -> Result<Option<AST>, &'static str> {
+fn eval(ast_option: Option<AST>, env: &mut Env) -> Result<Option<DataType>, &'static str> {
     debug!("eval");
     if ast_option.is_none() {
         return Ok(None);
@@ -227,10 +227,7 @@ fn eval(ast_option: Option<AST>, env: &mut Env) -> Result<Option<AST>, &'static 
     if let AST::Symbol(s) = ast {
         debug!("ast is a symbol: {:?}", s);
         match env.get(&s) {
-            Some(DataType::Integer(i)) => Ok(Some(AST::Integer(i))),
-            Some(DataType::Float(f)) => Ok(Some(AST::Float(f))),
-            Some(DataType::Symbol(ref ss)) => Ok(Some(AST::Symbol(ss.clone()))),
-            Some(DataType::Proc(_)) => unimplemented!(),
+            Some(data) => Ok(Some(data)),
             None => Err("symbol is not defined.")
         }
     } else if let AST::Children(list) = ast {
@@ -272,23 +269,13 @@ fn eval(ast_option: Option<AST>, env: &mut Env) -> Result<Option<AST>, &'static 
                                 .map(|x| eval(Some(x.clone()), &mut env_shared.clone()))
                                 .filter_map(|r| r.ok())
                                 .filter(|x| x.is_some())
-                                .map(|x|
-                                    match x {
-                                        Some(AST::Integer(i)) => DataType::Integer(i),
-                                        Some(AST::Float(f)) => DataType::Float(f),
-                                        Some(AST::Symbol(s)) => DataType::Symbol(s),
-                                        Some(AST::Children(_)) => unimplemented!(),
-                                        None => unreachable!()
-                                    }
-                                ).collect::<Vec<DataType>>();
+                                .flat_map(|x|x)
+                                .collect::<Vec<DataType>>();
 
 
                             f.call(args).and_then(|r| {
                                 match r {
-                                    Some(DataType::Integer(i)) => Ok(Some(AST::Integer(i))),
-                                    Some(DataType::Float(f)) => Ok(Some(AST::Float(f))),
-                                    Some(DataType::Symbol(ref ss)) => Ok(Some(AST::Symbol(ss.clone()))),
-                                    Some(DataType::Proc(_)) => unimplemented!(),
+                                    Some(data) => Ok(Some(data)),
                                     None => Ok(None)
                                 }
                             })
@@ -301,8 +288,15 @@ fn eval(ast_option: Option<AST>, env: &mut Env) -> Result<Option<AST>, &'static 
             unreachable!();
         }
     } else {
+
         debug!("ast is not a symbol/children");
-        Ok(Some(ast))
+        let data = match ast {
+            AST::Integer(i) => DataType::Integer(i),
+            AST::Float(f) => DataType::Float(f),
+            AST::Symbol(_) | AST::Children(_) => unreachable!(),
+        };
+
+        Ok(Some(data))
     }
 }
 
