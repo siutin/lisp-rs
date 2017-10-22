@@ -74,7 +74,8 @@ enum DataType {
     Integer(i64),
     Float(f64),
     Symbol(String),
-    Proc(Function)
+    Proc(Function),
+    List(Vec<DataType>)
 }
 
 #[derive(Debug)]
@@ -91,6 +92,7 @@ impl<'a> Env<'a> {
             Some(&DataType::Float(f)) => Some(DataType::Float(f)),
             Some(&DataType::Symbol(ref ss)) => Some(DataType::Symbol(ss.clone())),
             Some(&DataType::Proc(ref p)) => Some(DataType::Proc(p.clone())),
+            Some(&DataType::List(ref l)) => Some(DataType::List(l.clone())),
             None => {
                 match self.parent {
                     Some(ref some_parent) => {
@@ -475,6 +477,11 @@ fn setup() -> HashMap<String, DataType> {
             DataType::Integer(value)
         };
         Ok(Some(data))
+    }))));
+
+    map.insert("list".to_string(), DataType::Proc(Function(Rc::new(|vec: Vec<DataType>| {
+        debug!("Function - name: {:?} - Args: {:?}", "list", vec);
+        Ok(Some(DataType::List(vec)))
     }))));
 
     //    debug!("map start");
