@@ -313,7 +313,16 @@ fn setup() -> HashMap<String, DataType> {
 
     map.insert("print".to_string(), DataType::Proc(Function(Rc::new(|vec: Vec<DataType>| {
         debug!("Function - name: {:?} - Args: {:?}", "hello", vec);
-        print!("{:?}", vec);
+        if vec.len() != 1 {
+            return Err("print function requires one argument only");
+        }
+
+        let value_option = vec.first();
+        if value_option.is_none() {
+            return Err("unknown argument type");
+        }
+        println!("{}",datatype2str(value_option.unwrap()));
+//        print_fn(value_option.unwrap());
         Ok(None)
     }))));
 
@@ -506,4 +515,15 @@ fn setup() -> HashMap<String, DataType> {
     //    debug!("map end");
 
     return map;
+}
+
+fn datatype2str(value: &DataType) -> String {
+    match value {
+        &DataType::Integer(i) => format!("{}", i),
+        &DataType::Float(f) => format!("{}", f),
+        &DataType::Symbol(ref s) => format!("{}", s),
+        &DataType::Proc(ref p) => format!("{:?}", p),
+        &DataType::List(ref v) => format!("'({})", v.iter()
+            .map(|d|datatype2str(d)).collect::<Vec<_>>().join(" "))
+    }
 }
