@@ -465,28 +465,22 @@ fn setup() -> HashMap<String, DataType> {
         ).collect::<Vec<String>>().join(" / ");
         debug!("Description: {}", desc);
 
-        let data = if is_all_integer_or_floats {
+        let data = {
             let value: f64 = vec.iter().filter_map(|&ref x| {
                 match x {
                     &DataType::Integer(i) => Some(i as f64),
                     &DataType::Float(f) => Some(f),
                     _ => None
                 }
-            }).fold(1.0, |acc, x| {
-                acc / x
-            });
-
-            DataType::Float(value)
-        } else {
-            let value: i64 = vec.iter().filter_map(|&ref x| {
-                match x {
-                    &DataType::Integer(i) => Some(i),
-                    _ => None
+            }).fold(0.0, |mut acc, x| {
+                if acc == 0.0 {
+                    acc = x;
+                } else {
+                    acc = acc / x;
                 }
-            }).fold(1, |acc, x| {
-                acc / x
+                acc
             });
-            DataType::Integer(value)
+            DataType::Float(value)
         };
         Ok(Some(data))
     }))));
