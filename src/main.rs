@@ -258,7 +258,7 @@ fn eval(ast_option: Option<AST>, env: &mut Env) -> Result<Option<DataType>, &'st
                         debug!("Some(AST::Symbol) but not define");
                         debug!("proc_key : {}", s0);
                         let env_shared = env.clone();
-                        let data_option = match env_shared.local.borrow().get::<str>(s0) {
+                        let data_option = match env_shared.get(s0) {
                             Some(d) => Some(d.clone()),
                             None => None
                         };
