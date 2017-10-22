@@ -65,7 +65,7 @@ impl Clone for Function {
 impl fmt::Debug for Function {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let raw = &self.0 as *const _;
-        f.debug_tuple("Function").field( &raw).finish()
+        f.debug_tuple("Function").field(&raw).finish()
     }
 }
 
@@ -218,78 +218,81 @@ fn atom(token: &str) -> AST {
 fn eval(ast_option: Option<AST>, env: &mut Env) -> Result<Option<DataType>, &'static str> {
     debug!("eval");
     debug!("{:?}", ast_option);
-    if let Some(AST::Symbol(s)) = ast_option {
-        debug!("ast is a symbol: {:?}", s);
-        match env.get(&s) {
-            Some(data) => Ok(Some(data)),
-            None => Err("symbol is not defined.")
-        }
-    } else if let Some(AST::Children(list)) = ast_option {
-        debug!("ast is a children: {:?}", list);
-
-        if list.is_empty() {
-            return Err("syntax error");
-        }
-
-        tuplet!((s0,s1,s2) = list);
-
-        if let Some(&AST::Symbol(ref s0)) = s0 {
-            match s0.as_str() {
-                "define" => {
-                    if let (Some(&AST::Symbol(ref s1)), Some(&ref a2)) = (s1, s2) {
-                        match a2.clone() {
-                            AST::Integer(i) => { env.clone().local.borrow_mut().insert(s1.clone(), DataType::Integer(i)); }
-                            AST::Float(f) => { env.clone().local.borrow_mut().insert(s1.clone(), DataType::Float(f)); }
-                            AST::Symbol(ref s) => { env.clone().local.borrow_mut().insert(s1.clone(), DataType::Symbol(s.clone())); }
-                            AST::Children(_) => unimplemented!()
-                        }
-                        return Ok(None);
-                    }
-                    return Err("wrong syntax for define expression");
-                }
-                _ => {
-                    debug!("Some(AST::Symbol) but not define");
-                    debug!("proc_key : {}", s0);
-                    let env_shared = env.clone();
-                    let data_option = match env_shared.local.borrow().get::<str>(s0) {
-                        Some(d) => Some(d.clone()),
-                        None => None
-                    };
-
-                    match data_option {
-                        Some(DataType::Proc(ref f)) => {
-                            let slice = &list[1..list.len()];
-                            let args = slice.iter()
-                                .map(|x| eval(Some(x.clone()), &mut env_shared.clone()))
-                                .filter_map(|r| r.ok())
-                                .filter(|x| x.is_some())
-                                .flat_map(|x|x)
-                                .collect::<Vec<DataType>>();
-
-
-                            f.call(args).and_then(|r| {
-                                match r {
-                                    Some(data) => Ok(Some(data)),
-                                    None => Ok(None)
-                                }
-                            })
-                        }
-                        Some(_) | None => Err("Symbol is not defined.")
-                    }
-                }
+    match ast_option.clone() {
+        Some(AST::Symbol(s)) => {
+            debug!("ast is a symbol: {:?}", s);
+            match env.get(&s) {
+                Some(data) => Ok(Some(data)),
+                None => Err("symbol is not defined.")
             }
-        } else {
-            unreachable!();
         }
-    } else {
-        debug!("ast is not a symbol/children");
-        let data = match ast_option {
-            Some(AST::Integer(i)) => Some(DataType::Integer(i)),
-            Some(AST::Float(f)) => Some(DataType::Float(f)),
-            Some(_) => unreachable!(),
-            None => None
-        };
-        Ok(data)
+        Some(AST::Children(list)) => {
+            debug!("ast is a children: {:?}", list);
+
+            if list.is_empty() {
+                return Err("syntax error");
+            }
+
+            tuplet!((s0,s1,s2) = list);
+
+            if let Some(&AST::Symbol(ref s0)) = s0 {
+                match s0.as_str() {
+                    "define" => {
+                        if let (Some(&AST::Symbol(ref s1)), Some(&ref a2)) = (s1, s2) {
+                            match a2.clone() {
+                                AST::Integer(i) => { env.clone().local.borrow_mut().insert(s1.clone(), DataType::Integer(i)); }
+                                AST::Float(f) => { env.clone().local.borrow_mut().insert(s1.clone(), DataType::Float(f)); }
+                                AST::Symbol(ref s) => { env.clone().local.borrow_mut().insert(s1.clone(), DataType::Symbol(s.clone())); }
+                                AST::Children(_) => unimplemented!()
+                            }
+                            return Ok(None);
+                        }
+                        return Err("wrong syntax for define expression");
+                    }
+                    _ => {
+                        debug!("Some(AST::Symbol) but not define");
+                        debug!("proc_key : {}", s0);
+                        let env_shared = env.clone();
+                        let data_option = match env_shared.local.borrow().get::<str>(s0) {
+                            Some(d) => Some(d.clone()),
+                            None => None
+                        };
+
+                        match data_option {
+                            Some(DataType::Proc(ref f)) => {
+                                let slice = &list[1..list.len()];
+                                let args = slice.iter()
+                                    .map(|x| eval(Some(x.clone()), &mut env_shared.clone()))
+                                    .filter_map(|r| r.ok())
+                                    .filter(|x| x.is_some())
+                                    .flat_map(|x| x)
+                                    .collect::<Vec<DataType>>();
+
+                                f.call(args).and_then(|r| {
+                                    match r {
+                                        Some(data) => Ok(Some(data)),
+                                        None => Ok(None)
+                                    }
+                                })
+                            }
+                            Some(_) | None => Err("Symbol is not defined.")
+                        }
+                    }
+                }
+            } else {
+                unreachable!();
+            }
+        }
+        Some(_) | None => {
+            debug!("ast is not a symbol/children");
+            let data = match ast_option {
+                Some(AST::Integer(i)) => Some(DataType::Integer(i)),
+                Some(AST::Float(f)) => Some(DataType::Float(f)),
+                Some(_) => unreachable!(),
+                None => None
+            };
+            Ok(data)
+        }
     }
 }
 
@@ -474,23 +477,23 @@ fn setup() -> HashMap<String, DataType> {
         Ok(Some(data))
     }))));
 
-//    debug!("map start");
-//    for (i, key) in map.keys().enumerate() {
-//        debug!("{} => {}", i + 1, key);
-//        match map.get(key) {
-//            Some(&DataType::Proc(ref f)) => {
-//                match f.call(vec![DataType::Integer(1), DataType::Integer(2), DataType::Float(5.1)]) {
-//                    Ok(result) => { debug!("Execution is good. Result: {:?}", result); }
-//                    Err(_) => { debug!("Execution is failed"); }
-//                }
-//            }
-//            Some(&ref o) => {
-//                debug!("{:?}", o);
-//            },
-//            None => {}
-//        }
-//    }
-//    debug!("map end");
+    //    debug!("map start");
+    //    for (i, key) in map.keys().enumerate() {
+    //        debug!("{} => {}", i + 1, key);
+    //        match map.get(key) {
+    //            Some(&DataType::Proc(ref f)) => {
+    //                match f.call(vec![DataType::Integer(1), DataType::Integer(2), DataType::Float(5.1)]) {
+    //                    Ok(result) => { debug!("Execution is good. Result: {:?}", result); }
+    //                    Err(_) => { debug!("Execution is failed"); }
+    //                }
+    //            }
+    //            Some(&ref o) => {
+    //                debug!("{:?}", o);
+    //            },
+    //            None => {}
+    //        }
+    //    }
+    //    debug!("map end");
 
     return map;
 }
