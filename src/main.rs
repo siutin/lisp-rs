@@ -344,21 +344,23 @@ fn setup() -> HashMap<String, DataType> {
         ).collect::<Vec<String>>().join(" x ");
         debug!("Description: {}", desc);
 
-        let data = if is_all_integer_or_floats {
-            DataType::Float(
+        let is_all_integer = vec.iter().all(|&ref x| if let &DataType::Integer(_) = x { true } else { false });
+
+        let data = if is_all_integer {
+            DataType::Integer(
                 vec.iter().filter_map(|&ref x| {
                     match x {
-                        &DataType::Integer(i) => Some(i as f64),
-                        &DataType::Float(f) => Some(f),
+                        &DataType::Integer(i) => Some(i),
                         _ => None
                     }
                 }).product()
             )
         } else {
-            DataType::Integer(
+            DataType::Float(
                 vec.iter().filter_map(|&ref x| {
                     match x {
-                        &DataType::Integer(i) => Some(i),
+                        &DataType::Integer(i) => Some(i as f64),
+                        &DataType::Float(f) => Some(f),
                         _ => None
                     }
                 }).product()
@@ -385,21 +387,23 @@ fn setup() -> HashMap<String, DataType> {
         ).collect::<Vec<String>>().join(" + ");
         debug!("Description: {}", desc);
 
-        let data = if is_all_integer_or_floats {
-            DataType::Float(
+        let is_all_integer = vec.iter().all(|&ref x| if let &DataType::Integer(_) = x { true } else { false });
+
+        let data = if is_all_integer {
+            DataType::Integer(
                 vec.iter().filter_map(|&ref x| {
                     match x {
-                        &DataType::Integer(i) => Some(i as f64),
-                        &DataType::Float(f) => Some(f),
+                        &DataType::Integer(i) => Some(i),
                         _ => None
                     }
                 }).sum()
             )
         } else {
-            DataType::Integer(
+            DataType::Float(
                 vec.iter().filter_map(|&ref x| {
                     match x {
-                        &DataType::Integer(i) => Some(i),
+                        &DataType::Integer(i) => Some(i as f64),
+                        &DataType::Float(f) => Some(f),
                         _ => None
                     }
                 }).sum()
@@ -417,6 +421,8 @@ fn setup() -> HashMap<String, DataType> {
             return Err("wrong argument datatype");
         }
 
+        let is_all_integer = vec.iter().all(|&ref x| if let &DataType::Integer(_) = x { true } else { false });
+
         let desc = vec.iter().map(|&ref x|
             match x {
                 &DataType::Integer(i) => i.to_string(),
@@ -426,7 +432,15 @@ fn setup() -> HashMap<String, DataType> {
         ).collect::<Vec<String>>().join(" - ");
         debug!("Description: {}", desc);
 
-        let data = if is_all_integer_or_floats {
+        let data = if is_all_integer {
+            let value: i64 = vec.iter().filter_map(|&ref x| {
+                match x {
+                    &DataType::Integer(i) => Some(i),
+                    _ => None
+                }
+            }).sum();
+            DataType::Integer(value * -1)
+        } else {
             let value: f64 = vec.iter().filter_map(|&ref x| {
                 match x {
                     &DataType::Integer(i) => Some(i as f64),
@@ -435,14 +449,6 @@ fn setup() -> HashMap<String, DataType> {
                 }
             }).sum();
             DataType::Float(value * -1.0)
-        } else {
-            let value: i64 = vec.iter().filter_map(|&ref x| {
-                match x {
-                    &DataType::Integer(i) => Some(i),
-                    _ => None
-                }
-            }).sum();
-            DataType::Integer(value * -1)
         };
         Ok(Some(data))
     }))));
