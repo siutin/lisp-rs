@@ -322,7 +322,7 @@ fn eval(ast_option: Option<AST>, env: &mut Env) -> Result<Option<DataType>, &'st
                     }
                 }
             } else {
-                unreachable!();
+                Err("syntax error")
             }
         }
         Some(_) | None => {
