@@ -109,6 +109,7 @@ impl Into<Number> for i64 {
 
 #[derive(Clone, Debug)]
 enum DataType {
+    Bool(bool),
     Number(Number),
     Symbol(String),
     Proc(Function),
@@ -125,6 +126,7 @@ struct Env<'a> {
 impl<'a> Env<'a> {
     fn get(&self, key: &String) -> Option<DataType> {
         match self.local.borrow().get::<str>(key) {
+            Some(&DataType::Bool(b)) => Some(DataType::Bool(b)),
             Some(&DataType::Number(Number::Integer(i))) => Some(DataType::Number(Number::Integer(i))),
             Some(&DataType::Number(Number::Float(f))) => Some(DataType::Number(Number::Float(f))),
             Some(&DataType::Symbol(ref ss)) => Some(DataType::Symbol(ss.clone())),
@@ -263,9 +265,20 @@ fn eval(ast_option: Option<AST>, env: &mut Env) -> Result<Option<DataType>, &'st
     match ast_option.clone() {
         Some(AST::Symbol(s)) => {
             debug!("ast is a symbol: {:?}", s);
-            match env.get(&s) {
-                Some(data) => Ok(Some(data)),
-                None => Err("symbol is not defined.")
+            if s.len() > 1 && s.starts_with("#") {
+                let c_option = s.chars().nth(1);
+                if let Some('t') = c_option {
+                    Ok(Some(DataType::Bool(true)))
+                } else if let Some('f') = c_option {
+                    Ok(Some(DataType::Bool(false)))
+                } else {
+                    Err("syntax error")
+                }
+            } else {
+                match env.get(&s) {
+                    Some(data) => Ok(Some(data)),
+                    None => Err("symbol is not defined.")
+                }
             }
         }
         Some(AST::Children(list)) => {
@@ -564,6 +577,7 @@ fn setup() -> HashMap<String, DataType> {
 
 fn datatype2str(value: &DataType) -> String {
     match value {
+        &DataType::Bool(b) => format!("{}", b),
         &DataType::Number(Number::Integer(i)) => format!("{}", i),
         &DataType::Number(Number::Float(f)) => format!("{}", f),
         &DataType::Symbol(ref s) => format!("{}", s),
