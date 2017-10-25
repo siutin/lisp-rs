@@ -247,13 +247,44 @@ fn read_from_tokens(mut tokens: Vec<String>) -> Result<ReadFromTokenResult, &'st
                 return Err("syntax error");
             }
 
-            while !tmp_tokens.is_empty() && tmp_tokens.first().unwrap() != ")" {
-                match read_from_tokens(tmp_tokens.clone()) {
-                    Ok(data) => {
-                        vec.push(data.result);
-                        tmp_tokens = data.remain.clone();
+            while !tmp_tokens.is_empty() {
+                if tmp_tokens.first().unwrap() == ")" {
+                    break
+                } else {
+                    let start_quote_option = match tmp_tokens.clone().first() {
+                        Some(first_word) => {
+                            if first_word.starts_with('\"') {
+                                debug!("detect a start quote of string");
+                                Some(tmp_tokens.clone())
+                            } else {
+                                None
+                            }
+                        },
+                        None => None
+                    };
+                    if let Some(rest_str) = start_quote_option {
+                        debug!("rest_str: {:?}", rest_str);
+                        match rest_str.iter().position(|string_tag| if string_tag.ends_with('\"') { true } else { false }) {
+                            Some(i) => {
+                                debug!("detect a end quote of string");
+                                let str_result = (rest_str[0..i+1]).join(" ");
+                                let rest_tokens = (rest_str[i+1..]).iter().map(|&ref x| x.to_string()).collect::<Vec<String>>();
+                                debug!("str_result: {:?}", str_result);
+                                debug!("rest_tokens: {:?}", rest_tokens);
+                                vec.push(AST::Symbol(str_result));
+                                tmp_tokens = rest_tokens.clone();
+                            }
+                            None => { return Err("can not find a end quote"); }
+                        }
+                    } else {
+                        match read_from_tokens(tmp_tokens.clone()) {
+                            Ok(data) => {
+                                vec.push(data.result);
+                                tmp_tokens = data.remain.clone();
+                            }
+                            Err(e) => { return Err(e); }
+                        }
                     }
-                    Err(e) => { return Err(e); }
                 }
             }
             if tmp_tokens.is_empty() {
@@ -309,7 +340,9 @@ fn eval(ast_option: Option<AST>, env: &mut Env) -> Result<Option<DataType>, &'st
                 } else {
                     Err("syntax error")
                 }
-            } else {
+            } else if s.starts_with("\"") && s.ends_with("\"") {
+                Ok(Some(DataType::Symbol((&s[1..s.len()-1]).to_string())))
+            }else {
                 match env.get(&s) {
                     Some(data) => Ok(Some(data)),
                     None => Err("symbol is not defined.")
