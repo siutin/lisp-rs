@@ -209,7 +209,9 @@ fn repl(mut env: &mut Env) {
 
 fn parse(program: &str) -> Result<ReadFromTokenResult, &'static str> {
     debug!("program: {}", program);
-    let tokens = tokenize(program);
+    let wrap_program = format!("(begin {})", program);
+
+    let tokens = tokenize(&wrap_program);
     debug!("tokens: {:?}", tokens);
     let ast = read_from_tokens(tokens.clone());
     debug!("ast: {:?}", ast);
