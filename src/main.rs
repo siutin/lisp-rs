@@ -259,7 +259,7 @@ fn read_from_tokens(mut tokens: Vec<String>) -> Result<ReadFromTokenResult, &'st
                             } else {
                                 None
                             }
-                        },
+                        }
                         None => None
                     };
                     if let Some(rest_str) = start_quote_option {
@@ -267,8 +267,8 @@ fn read_from_tokens(mut tokens: Vec<String>) -> Result<ReadFromTokenResult, &'st
                         match rest_str.iter().position(|string_tag| if string_tag.ends_with('\"') { true } else { false }) {
                             Some(i) => {
                                 debug!("detect a end quote of string");
-                                let str_result = (rest_str[0..i+1]).join(" ");
-                                let rest_tokens = (rest_str[i+1..]).iter().map(|&ref x| x.to_string()).collect::<Vec<String>>();
+                                let str_result = (rest_str[0..i + 1]).join(" ");
+                                let rest_tokens = (rest_str[i + 1..]).iter().map(|&ref x| x.to_string()).collect::<Vec<String>>();
                                 debug!("str_result: {:?}", str_result);
                                 debug!("rest_tokens: {:?}", rest_tokens);
                                 vec.push(AST::Symbol(str_result));
@@ -341,8 +341,8 @@ fn eval(ast_option: Option<AST>, env: &mut Env) -> Result<Option<DataType>, &'st
                     Err("syntax error")
                 }
             } else if s.starts_with("\"") && s.ends_with("\"") {
-                Ok(Some(DataType::Symbol((&s[1..s.len()-1]).to_string())))
-            }else {
+                Ok(Some(DataType::Symbol((&s[1..s.len() - 1]).to_string())))
+            } else {
                 match env.get(&s) {
                     Some(data) => Ok(Some(data)),
                     None => Err("symbol is not defined.")
@@ -384,7 +384,7 @@ fn eval(ast_option: Option<AST>, env: &mut Env) -> Result<Option<DataType>, &'st
                         match data_option {
                             Some(DataType::Proc(ref f)) => {
                                 let slice = &list[1..list.len()];
-                                let args_result: Result<Vec<_>, _>  = slice.iter()
+                                let args_result: Result<Vec<_>, _> = slice.iter()
                                     .map(|x| eval(Some(x.clone()), &mut env_shared.clone()))
                                     .collect();
 
@@ -445,8 +445,8 @@ fn setup() -> HashMap<String, DataType> {
         if value_option.is_none() {
             return Err("unknown argument type");
         }
-        println!("{}",datatype2str(value_option.unwrap()));
-//        print_fn(value_option.unwrap());
+        println!("{}", datatype2str(value_option.unwrap()));
+        //        print_fn(value_option.unwrap());
         Ok(None)
     }))));
 
@@ -603,7 +603,7 @@ fn setup() -> HashMap<String, DataType> {
                 } else {
                     Err("car function requires a non-empty list")
                 }
-            },
+            }
             _ => Err("car function requires an argument of type 'list'")
         }
     }))));
@@ -624,7 +624,7 @@ fn setup() -> HashMap<String, DataType> {
                 } else {
                     Err("cdr function requires a non-empty list")
                 }
-            },
+            }
             _ => Err("cdr function requires an argument of type 'list'")
         }
     }))));
@@ -673,6 +673,6 @@ fn datatype2str(value: &DataType) -> String {
         &DataType::Symbol(ref s) => format!("{}", s),
         &DataType::Proc(ref p) => format!("{:?}", p),
         &DataType::List(ref v) => format!("'({})", v.iter()
-            .map(|d|datatype2str(d)).collect::<Vec<_>>().join(" "))
+            .map(|d| datatype2str(d)).collect::<Vec<_>>().join(" "))
     }
 }
