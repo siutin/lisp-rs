@@ -351,11 +351,17 @@ fn eval(ast_option: Option<AST>, env: &mut Env) -> Result<Option<DataType>, &'st
                         match data_option {
                             Some(DataType::Proc(ref f)) => {
                                 let slice = &list[1..list.len()];
-                                let args = slice.iter()
+                                let args_result: Result<Vec<_>, _>  = slice.iter()
                                     .map(|x| eval(Some(x.clone()), &mut env_shared.clone()))
-                                    .filter_map(|r| r.ok())
+                                    .collect();
+
+                                debug!("args_result: {:?}", args_result);
+
+                                if let Result::Err(ref e) = args_result { return Err(e); }
+
+                                let args = args_result.unwrap().iter()
                                     .filter(|x| x.is_some())
-                                    .flat_map(|x| x)
+                                    .flat_map(|ref mut x| x.clone())
                                     .collect::<Vec<DataType>>();
 
                                 f.call(args).and_then(|r| {
