@@ -554,6 +554,37 @@ fn setup() -> HashMap<String, DataType> {
             _ => Err("cdr function requires an argument of type 'list'")
         }
     }))));
+
+    map.insert(">".to_string(), DataType::Proc(Function(Rc::new(|vec: Vec<DataType>| {
+        debug!("Function - name: {:?} - Args: {:?}", ">", vec);
+        if vec.len() != 2 {
+            return Err("> function requires 2 arguments only");
+        }
+        tuplet!((a,b) = vec);
+
+        if let (Some(&DataType::Number(ref a0)), Some(&DataType::Number(ref b0))) = (a, b) {
+            let is_integers = vec.iter().all(|&ref x| if let &DataType::Number(Number::Integer(_)) = x { true } else { false });
+            if is_integers {
+                let a1: i64 = a0.clone().into();
+                let b1: i64 = b0.clone().into();
+                let desc = format!("{} > {}", a1, b1);
+                debug!("Description: {}", desc);
+                let value =  a1 > b1;
+                Ok(Some(DataType::Bool(value)))
+            } else {
+                let a1: f64 = a0.clone().into();
+                let b1: f64 = b0.clone().into();
+                let desc = format!("{} > {}", a1, b1);
+                debug!("Description: {}", desc);
+                let value =  a1 > b1;
+                Ok(Some(DataType::Bool(value)))
+            }
+        } else {
+            return Err("wrong argument datatype");
+        }
+
+    }))));
+
     //    debug!("map start");
     //    for (i, key) in map.keys().enumerate() {
     //        debug!("{} => {}", i + 1, key);
