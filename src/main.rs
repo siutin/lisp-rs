@@ -34,6 +34,39 @@ macro_rules! tuplet {
  }
 }
 
+
+macro_rules! define_comparison {
+    ($proc:ident, $name:pat, $func:expr) => {
+        let $proc = DataType::Proc(Function(Rc::new(|vec: Vec<DataType>| {
+            debug!("Function - name: {:?} - Args: {:?}", stringify!($name), vec);
+            if vec.len() != 2 {
+                return Err("function requires 2 arguments only");
+            }
+            tuplet!((a,b) = vec);
+
+            if let (Some(&DataType::Number(ref a0)), Some(&DataType::Number(ref b0))) = (a, b) {
+                let is_integers = vec.iter().all(|&ref x| if let &DataType::Number(Number::Integer(_)) = x { true } else { false });
+                if is_integers {
+                    let a1: i64 = a0.clone().into();
+                    let b1: i64 = b0.clone().into();
+                    let desc = format!("{} {} {}", a1, stringify!($name), b1);
+                    debug!("Description: {}", desc);
+                    Ok(Some(DataType::Bool($func(a1, b1))))
+                } else {
+                    let a1: f64 = a0.clone().into();
+                    let b1: f64 = b0.clone().into();
+                    let desc = format!("{} {} {}", a1, stringify!($name), b1);
+                    debug!("Description: {}", desc);
+                    Ok(Some(DataType::Bool($func(a1, b1))))
+                }
+            } else {
+                return Err("wrong argument datatype");
+            }
+
+        })));
+    };
+}
+
 #[derive(Clone, Debug)]
 enum AST {
     Integer(i64),
@@ -555,35 +588,20 @@ fn setup() -> HashMap<String, DataType> {
         }
     }))));
 
-    map.insert(">".to_string(), DataType::Proc(Function(Rc::new(|vec: Vec<DataType>| {
-        debug!("Function - name: {:?} - Args: {:?}", ">", vec);
-        if vec.len() != 2 {
-            return Err("> function requires 2 arguments only");
-        }
-        tuplet!((a,b) = vec);
+    define_comparison!(gt, ">", |a,b| { a > b });
+    map.insert(">".to_string(), gt);
 
-        if let (Some(&DataType::Number(ref a0)), Some(&DataType::Number(ref b0))) = (a, b) {
-            let is_integers = vec.iter().all(|&ref x| if let &DataType::Number(Number::Integer(_)) = x { true } else { false });
-            if is_integers {
-                let a1: i64 = a0.clone().into();
-                let b1: i64 = b0.clone().into();
-                let desc = format!("{} > {}", a1, b1);
-                debug!("Description: {}", desc);
-                let value =  a1 > b1;
-                Ok(Some(DataType::Bool(value)))
-            } else {
-                let a1: f64 = a0.clone().into();
-                let b1: f64 = b0.clone().into();
-                let desc = format!("{} > {}", a1, b1);
-                debug!("Description: {}", desc);
-                let value =  a1 > b1;
-                Ok(Some(DataType::Bool(value)))
-            }
-        } else {
-            return Err("wrong argument datatype");
-        }
+    define_comparison!(lt, "<", |a,b| { a < b });
+    map.insert("<".to_string(), lt);
 
-    }))));
+    define_comparison!(eq, "=", |a,b| { a == b });
+    map.insert("=".to_string(), eq);
+
+    define_comparison!(ge, ">=", |a,b| { a >= b });
+    map.insert(">=".to_string(), ge);
+
+    define_comparison!(le, "<=", |a,b| { a <= b });
+    map.insert("<=".to_string(), le);
 
     //    debug!("map start");
     //    for (i, key) in map.keys().enumerate() {
