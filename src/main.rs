@@ -543,8 +543,6 @@ fn setup() -> HashMap<String, DataType> {
             return Err("wrong argument datatype");
         }
 
-        let is_integers = vec.iter().all(|&ref x| if let &DataType::Number(Number::Integer(_)) = x { true } else { false });
-
         let desc = vec.iter().map(|&ref x|
             match x {
                 &DataType::Number(Number::Integer(i)) => i.to_string(),
@@ -554,21 +552,32 @@ fn setup() -> HashMap<String, DataType> {
         ).collect::<Vec<String>>().join(" - ");
         debug!("Description: {}", desc);
 
-        let numbers = vec.iter().filter_map(|&ref x| { if let &DataType::Number(ref y) = x { Some(y.clone()) } else { None } });
-        let data = if is_integers {
-            let value: i64 = numbers.map(|x| {
-                let y: i64 = x.clone().into();
-                y
-            }).sum();
-            Number::Integer(value * -1)
+        let is_integers = vec.iter().all(|&ref x| if let &DataType::Number(Number::Integer(_)) = x { true } else { false });
+
+        if is_integers {
+            let value: i64 = vec.iter().filter_map(|&ref x| { if let &DataType::Number(ref y) = x { Some(y.clone()) } else { None } })
+                .map(|x| {
+                    let y: i64 = x.clone().into();
+                    y
+                })
+                .fold(0, |mut acc, x| {
+                    if acc == 0 { acc = x; } else { acc = acc - x; }
+                    acc
+                });
+            Ok(Some(DataType::Number(Number::Integer(value))))
+
         } else {
-            let value: f64 = numbers.map(|x| {
-                let y: f64 = x.clone().into();
-                y
-            }).sum();
-            Number::Float(value * -1.0)
-        };
-        Ok(Some(DataType::Number(data)))
+            let value: f64 = vec.iter().filter_map(|&ref x| { if let &DataType::Number(ref y) = x { Some(y.clone()) } else { None } })
+                .map(|x| {
+                    let y: f64 = x.clone().into();
+                    y
+                })
+                .fold(0.0, |mut acc, x| {
+                    if acc == 0.0 { acc = x; } else { acc = acc - x; }
+                    acc
+                });
+            Ok(Some(DataType::Number(Number::Float(value))))
+        }
     }))));
 
     map.insert("/".to_string(), DataType::Proc(Function(Rc::new(|vec: Vec<DataType>| {
