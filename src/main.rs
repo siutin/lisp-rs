@@ -325,7 +325,7 @@ fn atom(token: &str) -> AST {
     }
 }
 
-fn eval(ast_option: Option<AST>, env: &mut Env) -> Result<Option<DataType>, &'static str> {
+fn eval(ast_option: Option<AST>, mut env: &mut Env) -> Result<Option<DataType>, &'static str> {
     debug!("eval");
     debug!("{:?}", ast_option);
     match ast_option.clone() {
@@ -356,10 +356,29 @@ fn eval(ast_option: Option<AST>, env: &mut Env) -> Result<Option<DataType>, &'st
                 return Err("syntax error");
             }
 
-            tuplet!((s0,s1,s2) = list);
+            tuplet!((s0,s1,s2,s3) = list);
 
             if let Some(&AST::Symbol(ref s0)) = s0 {
                 match s0.as_str() {
+                    "if" => {
+                        debug!("if-expression");
+                        if let (Some(&ref cond), Some(&ref conseq), Some(&ref alt)) = (s1, s2, s3) {
+
+                            match eval(Some(cond.clone()), &mut env) {
+                                Ok(Some(DataType::Bool(b))) => {
+                                    match b {
+                                        true => eval(Some(conseq.clone()), &mut env),
+                                        false => eval(Some(alt.clone()), &mut env)
+                                    }
+                                },
+                                Ok(_) => { return Err("syntax error"); },
+                                Err(e) => { return Err(e); }
+                            }
+
+                        } else {
+                            return Err("wrong syntax for if expression");
+                        }
+                    },
                     "define" => {
                         if let (Some(&AST::Symbol(ref s1)), Some(&ref a2)) = (s1, s2) {
                             match a2.clone() {
