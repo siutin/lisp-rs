@@ -37,7 +37,7 @@ macro_rules! tuplet {
 
 macro_rules! define_comparison {
     ($proc:ident, $name:pat, $func:expr) => {
-        let $proc = DataType::Proc(Function(Rc::new(|vec: Vec<DataType>| {
+        let $proc = DataType::Proc(Function(Rc::new(|vec: Vec<DataType>, env: RefCell<Env>| {
             debug!("Function - name: {:?} - Args: {:?}", stringify!($name), vec);
             if vec.len() != 2 {
                 return Err("function requires 2 arguments only");
@@ -81,11 +81,11 @@ struct ReadFromTokenResult {
     result: AST
 }
 
-struct Function(pub Rc<Fn(Vec<DataType>) -> Result<Option<DataType>, &'static str>>);
+struct Function(pub Rc<Fn(Vec<DataType>,RefCell<Env>) -> Result<Option<DataType>, &'static str>>);
 
 impl Function {
-    fn call(&self, arguments: Vec<DataType>) -> Result<Option<DataType>, &'static str> {
-        (self.0)(arguments)
+    fn call(&self, arguments: Vec<DataType>, env: RefCell<Env>) -> Result<Option<DataType>, &'static str> {
+        (self.0)(arguments, env)
     }
 }
 
@@ -416,7 +416,8 @@ fn eval(ast_option: Option<AST>, mut env: &mut Env) -> Result<Option<DataType>, 
                                     .flat_map(|ref mut x| x.clone())
                                     .collect::<Vec<DataType>>();
 
-                                f.call(args).and_then(|r| {
+                                let env_ref = RefCell::new(env_shared.clone());
+                                f.call(args, env_ref).and_then(|r| {
                                     match r {
                                         Some(data) => Ok(Some(data)),
                                         None => Ok(None)
@@ -449,13 +450,13 @@ fn setup() -> HashMap<String, DataType> {
     map.insert("pi".to_string(), DataType::Number(Number::Float(std::f64::consts::PI)));
 
     // pre-defined commands
-    map.insert("begin".to_string(), DataType::Proc(Function(Rc::new(|mut vec: Vec<DataType>| {
+    map.insert("begin".to_string(), DataType::Proc(Function(Rc::new(|mut vec: Vec<DataType>, env: RefCell<Env>| {
         debug!("Function - name: {:?} - Args: {:?}", "begin", vec);
         Ok(vec.pop().clone())
     }))));
 
-    map.insert("print".to_string(), DataType::Proc(Function(Rc::new(|vec: Vec<DataType>| {
-        debug!("Function - name: {:?} - Args: {:?}", "hello", vec);
+    map.insert("print".to_string(), DataType::Proc(Function(Rc::new(|vec: Vec<DataType>, env: RefCell<Env>| {
+        debug!("Function - name: {:?} - Args: {:?}", "print", vec);
         if vec.len() != 1 {
             return Err("print function requires one argument only");
         }
@@ -469,7 +470,7 @@ fn setup() -> HashMap<String, DataType> {
         Ok(None)
     }))));
 
-    map.insert("*".to_string(), DataType::Proc(Function(Rc::new(|vec: Vec<DataType>| {
+    map.insert("*".to_string(), DataType::Proc(Function(Rc::new(|vec: Vec<DataType>, env: RefCell<Env>| {
         debug!("Function - name: {:?} - Args: {:?}", "*", vec);
         let is_numbers = vec.iter().all(|&ref x| if let &DataType::Number(_) = x { true } else { false });
         if !is_numbers {
@@ -502,7 +503,7 @@ fn setup() -> HashMap<String, DataType> {
         }
     }))));
 
-    map.insert("+".to_string(), DataType::Proc(Function(Rc::new(|vec: Vec<DataType>| {
+    map.insert("+".to_string(), DataType::Proc(Function(Rc::new(|vec: Vec<DataType>, env: RefCell<Env>| {
         debug!("Function - name: {:?} - Args: {:?}", "+", vec);
         let is_numbers = vec.iter().all(|&ref x| if let &DataType::Number(_) = x { true } else { false });
         if !is_numbers {
@@ -535,7 +536,7 @@ fn setup() -> HashMap<String, DataType> {
         }
     }))));
 
-    map.insert("-".to_string(), DataType::Proc(Function(Rc::new(|vec: Vec<DataType>| {
+    map.insert("-".to_string(), DataType::Proc(Function(Rc::new(|vec: Vec<DataType>, env: RefCell<Env>| {
         debug!("Function - name: {:?} - Args: {:?}", "+", vec);
         let is_numbers = vec.iter().all(|&ref x| if let &DataType::Number(_) = x { true } else { false });
 
@@ -580,7 +581,7 @@ fn setup() -> HashMap<String, DataType> {
         }
     }))));
 
-    map.insert("/".to_string(), DataType::Proc(Function(Rc::new(|vec: Vec<DataType>| {
+    map.insert("/".to_string(), DataType::Proc(Function(Rc::new(|vec: Vec<DataType>, env: RefCell<Env>| {
         debug!("Function - name: {:?} - Args: {:?}", "/", vec);
         let is_numbers = vec.iter().all(|&ref x| if let &DataType::Number(_) = x { true } else { false });
 
@@ -609,12 +610,12 @@ fn setup() -> HashMap<String, DataType> {
         Ok(Some(DataType::Number(Number::Float(value))))
     }))));
 
-    map.insert("list".to_string(), DataType::Proc(Function(Rc::new(|vec: Vec<DataType>| {
+    map.insert("list".to_string(), DataType::Proc(Function(Rc::new(|vec: Vec<DataType>, env: RefCell<Env>| {
         debug!("Function - name: {:?} - Args: {:?}", "list", vec);
         Ok(Some(DataType::List(vec)))
     }))));
 
-    map.insert("car".to_string(), DataType::Proc(Function(Rc::new(|vec: Vec<DataType>| {
+    map.insert("car".to_string(), DataType::Proc(Function(Rc::new(|vec: Vec<DataType>, env: RefCell<Env>| {
         debug!("Function - name: {:?} - Args: {:?}", "car", vec);
         if vec.len() != 1 {
             return Err("car function requires one argument only");
@@ -636,7 +637,7 @@ fn setup() -> HashMap<String, DataType> {
         }
     }))));
 
-    map.insert("cdr".to_string(), DataType::Proc(Function(Rc::new(|vec: Vec<DataType>| {
+    map.insert("cdr".to_string(), DataType::Proc(Function(Rc::new(|vec: Vec<DataType>, env: RefCell<Env>| {
         debug!("Function - name: {:?} - Args: {:?}", "cdr", vec);
         if vec.len() != 1 {
             return Err("cdr function requires one argument only");
