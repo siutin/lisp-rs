@@ -37,9 +37,8 @@ macro_rules! tuplet {
 
 macro_rules! define_comparison {
     ($proc:ident, $name:pat, $func:expr) => {
-        let $proc = DataType::Proc(Procedure {
-            body: Rc::new(|vec: Vec<DataType>, _: RefCell<Env>| {
-                debug!("Procedure - name: {:?} - Args: {:?}", stringify!($name), vec);
+        let $proc = DataType::Proc(Function( Rc::new(|vec: Vec<DataType>, _: RefCell<Env>| {
+                debug!("Function - name: {:?} - Args: {:?}", stringify!($name), vec);
                 if vec.len() != 2 {
                     return Err("function requires 2 arguments only");
                 }
@@ -64,9 +63,7 @@ macro_rules! define_comparison {
                     return Err("wrong argument datatype");
                 }
 
-            }),
-            env: None
-        });
+            })));
     };
 }
 
@@ -85,14 +82,8 @@ struct ReadFromTokenResult {
 }
 
 struct Procedure {
-    body: Rc<Fn(Vec<DataType>, RefCell<Env>) -> Result<Option<DataType>, &'static str>>,
-    env: Option<Env>
-}
-
-impl Procedure {
-    fn call(&self, arguments: Vec<DataType>, env: RefCell<Env>) -> Result<Option<DataType>, &'static str> {
-        (self.body)(arguments, env)
-    }
+    body: AST,
+    env: Env
 }
 
 impl Clone for Procedure {
@@ -106,8 +97,30 @@ impl Clone for Procedure {
 
 impl fmt::Debug for Procedure {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let raw = &self.body as *const _;
-        f.debug_tuple("Procedure").field(&raw).finish()
+        f.debug_struct("Procedure")
+            .field("body", &self.body)
+            .field("env",&self.env).finish()
+    }
+}
+
+struct Function(pub Rc<Fn(Vec<DataType>, RefCell<Env>) -> Result<Option<DataType>, &'static str>>);
+
+impl Function {
+    fn call(&self, arguments: Vec<DataType>, env: RefCell<Env>) -> Result<Option<DataType>, &'static str> {
+        (self.0)(arguments, env)
+    }
+}
+
+impl Clone for Function {
+    fn clone(&self) -> Self {
+        Function(self.0.clone())
+    }
+}
+
+impl fmt::Debug for Function {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let raw = &self.0 as *const _;
+        f.debug_tuple("Function").field(&raw).finish()
     }
 }
 
@@ -152,7 +165,7 @@ enum DataType {
     Bool(bool),
     Number(Number),
     Symbol(String),
-    Proc(Procedure),
+    Proc(Function),
     List(Vec<DataType>)
 }
 
@@ -457,74 +470,33 @@ fn setup() -> HashMap<String, DataType> {
 
     // pre-defined commands
     map.insert("begin".to_string(), DataType::Proc(
-        Procedure {
-            body: Rc::new(|mut vec: Vec<DataType>, _: RefCell<Env>| {
-                debug!("Procedure - name: {:?} - Args: {:?}", "begin", vec);
+        Function(
+            Rc::new(|mut vec: Vec<DataType>, _: RefCell<Env>| {
+                debug!("Function - name: {:?} - Args: {:?}", "begin", vec);
                 Ok(vec.pop().clone())
-            }),
-            env: None
-        }
+            })
+        )
     ));
 
     map.insert("print".to_string(), DataType::Proc(
-        Procedure {
-            body: Rc::new(|vec: Vec<DataType>, _: RefCell<Env>| {
-                debug!("Procedure - name: {:?} - Args: {:?}", "print", vec);
-                if vec.len() != 1 {
-                    return Err("print function requires one argument only");
-                }
+        Function(Rc::new(|vec: Vec<DataType>, _: RefCell<Env>| {
+            debug!("Function - name: {:?} - Args: {:?}", "print", vec);
+            if vec.len() != 1 {
+                return Err("print function requires one argument only");
+            }
 
-                let value_option = vec.first();
-                if value_option.is_none() {
-                    return Err("unknown argument type");
-                }
-                println!("{}", datatype2str(value_option.unwrap()));
-                //        print_fn(value_option.unwrap());
-                Ok(None)
-            }),
-            env: None
-        }));
+            let value_option = vec.first();
+            if value_option.is_none() {
+                return Err("unknown argument type");
+            }
+            println!("{}", datatype2str(value_option.unwrap()));
+            //        print_fn(value_option.unwrap());
+            Ok(None)
+        }))));
 
     map.insert("*".to_string(), DataType::Proc(
-        Procedure {
-            body: Rc::new(|vec: Vec<DataType>, _: RefCell<Env>| {
-                debug!("Procedure - name: {:?} - Args: {:?}", "*", vec);
-                let is_numbers = vec.iter().all(|&ref x| if let &DataType::Number(_) = x { true } else { false });
-                if !is_numbers {
-                    return Err("wrong argument datatype");
-                }
-
-                let desc = vec.iter().map(|&ref x|
-                    match x {
-                        &DataType::Number(Number::Integer(i)) => i.to_string(),
-                        &DataType::Number(Number::Float(f)) => f.to_string(),
-                        _ => panic!("Something went wrong"),
-                    }
-                ).collect::<Vec<String>>().join(" x ");
-                debug!("Description: {}", desc);
-
-                let is_integers = vec.iter().all(|&ref x| if let &DataType::Number(Number::Integer(_)) = x { true } else { false });
-                let numbers = vec.iter().filter_map(|&ref x| { if let &DataType::Number(ref y) = x { Some(y.clone()) } else { None } });
-                if is_integers {
-                    let data: i64 = numbers.map(|x| {
-                        let y: i64 = x.clone().into();
-                        y
-                    }).product();
-                    Ok(Some(DataType::Number(data.into())))
-                } else {
-                    let data: f64 = numbers.map(|x| {
-                        let y: f64 = x.clone().into();
-                        y
-                    }).product();
-                    Ok(Some(DataType::Number(data.into())))
-                }
-            }),
-            env: None
-        }));
-
-    map.insert("+".to_string(), DataType::Proc(Procedure {
-        body: Rc::new(|vec: Vec<DataType>, _: RefCell<Env>| {
-            debug!("Procedure - name: {:?} - Args: {:?}", "+", vec);
+        Function(Rc::new(|vec: Vec<DataType>, _: RefCell<Env>| {
+            debug!("Function - name: {:?} - Args: {:?}", "*", vec);
             let is_numbers = vec.iter().all(|&ref x| if let &DataType::Number(_) = x { true } else { false });
             if !is_numbers {
                 return Err("wrong argument datatype");
@@ -534,9 +506,9 @@ fn setup() -> HashMap<String, DataType> {
                 match x {
                     &DataType::Number(Number::Integer(i)) => i.to_string(),
                     &DataType::Number(Number::Float(f)) => f.to_string(),
-                    _ => unreachable!(),
+                    _ => panic!("Something went wrong"),
                 }
-            ).collect::<Vec<String>>().join(" + ");
+            ).collect::<Vec<String>>().join(" x ");
             debug!("Description: {}", desc);
 
             let is_integers = vec.iter().all(|&ref x| if let &DataType::Number(Number::Integer(_)) = x { true } else { false });
@@ -545,154 +517,170 @@ fn setup() -> HashMap<String, DataType> {
                 let data: i64 = numbers.map(|x| {
                     let y: i64 = x.clone().into();
                     y
-                }).sum();
+                }).product();
                 Ok(Some(DataType::Number(data.into())))
             } else {
                 let data: f64 = numbers.map(|x| {
                     let y: f64 = x.clone().into();
                     y
-                }).sum();
+                }).product();
                 Ok(Some(DataType::Number(data.into())))
             }
-        }),
-        env: None
-    }));
+        }))));
 
-    map.insert("-".to_string(), DataType::Proc(Procedure {
-        body: Rc::new(|vec: Vec<DataType>, _: RefCell<Env>| {
-            debug!("Procedure - name: {:?} - Args: {:?}", "+", vec);
-            let is_numbers = vec.iter().all(|&ref x| if let &DataType::Number(_) = x { true } else { false });
+    map.insert("+".to_string(), DataType::Proc(Function(Rc::new(|vec: Vec<DataType>, _: RefCell<Env>| {
+        debug!("Function - name: {:?} - Args: {:?}", "+", vec);
+        let is_numbers = vec.iter().all(|&ref x| if let &DataType::Number(_) = x { true } else { false });
+        if !is_numbers {
+            return Err("wrong argument datatype");
+        }
 
-            if !is_numbers {
-                return Err("wrong argument datatype");
+        let desc = vec.iter().map(|&ref x|
+            match x {
+                &DataType::Number(Number::Integer(i)) => i.to_string(),
+                &DataType::Number(Number::Float(f)) => f.to_string(),
+                _ => unreachable!(),
             }
+        ).collect::<Vec<String>>().join(" + ");
+        debug!("Description: {}", desc);
 
-            let desc = vec.iter().map(|&ref x|
-                match x {
-                    &DataType::Number(Number::Integer(i)) => i.to_string(),
-                    &DataType::Number(Number::Float(f)) => f.to_string(),
-                    _ => unreachable!(),
-                }
-            ).collect::<Vec<String>>().join(" - ");
-            debug!("Description: {}", desc);
+        let is_integers = vec.iter().all(|&ref x| if let &DataType::Number(Number::Integer(_)) = x { true } else { false });
+        let numbers = vec.iter().filter_map(|&ref x| { if let &DataType::Number(ref y) = x { Some(y.clone()) } else { None } });
+        if is_integers {
+            let data: i64 = numbers.map(|x| {
+                let y: i64 = x.clone().into();
+                y
+            }).sum();
+            Ok(Some(DataType::Number(data.into())))
+        } else {
+            let data: f64 = numbers.map(|x| {
+                let y: f64 = x.clone().into();
+                y
+            }).sum();
+            Ok(Some(DataType::Number(data.into())))
+        }
+    }))));
 
-            let is_integers = vec.iter().all(|&ref x| if let &DataType::Number(Number::Integer(_)) = x { true } else { false });
+    map.insert("-".to_string(), DataType::Proc(Function(Rc::new(|vec: Vec<DataType>, _: RefCell<Env>| {
+        debug!("Function - name: {:?} - Args: {:?}", "+", vec);
+        let is_numbers = vec.iter().all(|&ref x| if let &DataType::Number(_) = x { true } else { false });
 
-            if is_integers {
-                let value: i64 = vec.iter().filter_map(|&ref x| { if let &DataType::Number(ref y) = x { Some(y.clone()) } else { None } })
-                    .map(|x| {
-                        let y: i64 = x.clone().into();
-                        y
-                    })
-                    .fold(0, |mut acc, x| {
-                        if acc == 0 { acc = x; } else { acc = acc - x; }
-                        acc
-                    });
-                Ok(Some(DataType::Number(Number::Integer(value))))
-            } else {
-                let value: f64 = vec.iter().filter_map(|&ref x| { if let &DataType::Number(ref y) = x { Some(y.clone()) } else { None } })
-                    .map(|x| {
-                        let y: f64 = x.clone().into();
-                        y
-                    })
-                    .fold(0.0, |mut acc, x| {
-                        if acc == 0.0 { acc = x; } else { acc = acc - x; }
-                        acc
-                    });
-                Ok(Some(DataType::Number(Number::Float(value))))
+        if !is_numbers {
+            return Err("wrong argument datatype");
+        }
+
+        let desc = vec.iter().map(|&ref x|
+            match x {
+                &DataType::Number(Number::Integer(i)) => i.to_string(),
+                &DataType::Number(Number::Float(f)) => f.to_string(),
+                _ => unreachable!(),
             }
-        }),
-        env: None
-    }));
+        ).collect::<Vec<String>>().join(" - ");
+        debug!("Description: {}", desc);
 
-    map.insert("/".to_string(), DataType::Proc(Procedure {
-        body: Rc::new(|vec: Vec<DataType>, _: RefCell<Env>| {
-            debug!("Procedure - name: {:?} - Args: {:?}", "/", vec);
-            let is_numbers = vec.iter().all(|&ref x| if let &DataType::Number(_) = x { true } else { false });
+        let is_integers = vec.iter().all(|&ref x| if let &DataType::Number(Number::Integer(_)) = x { true } else { false });
 
-            if !is_numbers {
-                return Err("wrong argument datatype");
-            }
-
-            let desc = vec.iter().map(|&ref x|
-                match x {
-                    &DataType::Number(Number::Integer(i)) => i.to_string(),
-                    &DataType::Number(Number::Float(f)) => f.to_string(),
-                    _ => unreachable!(),
-                }
-            ).collect::<Vec<String>>().join(" / ");
-            debug!("Description: {}", desc);
-
+        if is_integers {
+            let value: i64 = vec.iter().filter_map(|&ref x| { if let &DataType::Number(ref y) = x { Some(y.clone()) } else { None } })
+                .map(|x| {
+                    let y: i64 = x.clone().into();
+                    y
+                })
+                .fold(0, |mut acc, x| {
+                    if acc == 0 { acc = x; } else { acc = acc - x; }
+                    acc
+                });
+            Ok(Some(DataType::Number(Number::Integer(value))))
+        } else {
             let value: f64 = vec.iter().filter_map(|&ref x| { if let &DataType::Number(ref y) = x { Some(y.clone()) } else { None } })
                 .map(|x| {
                     let y: f64 = x.clone().into();
                     y
                 })
                 .fold(0.0, |mut acc, x| {
-                    if acc == 0.0 { acc = x; } else { acc = acc / x; }
+                    if acc == 0.0 { acc = x; } else { acc = acc - x; }
                     acc
                 });
             Ok(Some(DataType::Number(Number::Float(value))))
-        }),
-        env: None
-    }));
+        }
+    }))));
 
-    map.insert("list".to_string(), DataType::Proc(Procedure {
-        body: Rc::new(|vec: Vec<DataType>, _: RefCell<Env>| {
-            debug!("Procedure - name: {:?} - Args: {:?}", "list", vec);
-            Ok(Some(DataType::List(vec)))
-        }),
-        env: None
-    }));
+    map.insert("/".to_string(), DataType::Proc(Function(Rc::new(|vec: Vec<DataType>, _: RefCell<Env>| {
+        debug!("Function - name: {:?} - Args: {:?}", "/", vec);
+        let is_numbers = vec.iter().all(|&ref x| if let &DataType::Number(_) = x { true } else { false });
 
-    map.insert("car".to_string(), DataType::Proc(Procedure {
-        body: Rc::new(|vec: Vec<DataType>, _: RefCell<Env>| {
-            debug!("Procedure - name: {:?} - Args: {:?}", "car", vec);
-            if vec.len() != 1 {
-                return Err("car function requires one argument only");
+        if !is_numbers {
+            return Err("wrong argument datatype");
+        }
+
+        let desc = vec.iter().map(|&ref x|
+            match x {
+                &DataType::Number(Number::Integer(i)) => i.to_string(),
+                &DataType::Number(Number::Float(f)) => f.to_string(),
+                _ => unreachable!(),
             }
-            let value_option = vec.first();
-            if value_option.is_none() {
-                return Err("car function unknown argument type");
-            }
-            match value_option.unwrap() {
-                &DataType::List(ref vec) => {
-                    let value = vec.first();
-                    if value.is_some() {
-                        Ok(Some(DataType::from(value.unwrap().clone())))
-                    } else {
-                        Err("car function requires a non-empty list")
-                    }
+        ).collect::<Vec<String>>().join(" / ");
+        debug!("Description: {}", desc);
+
+        let value: f64 = vec.iter().filter_map(|&ref x| { if let &DataType::Number(ref y) = x { Some(y.clone()) } else { None } })
+            .map(|x| {
+                let y: f64 = x.clone().into();
+                y
+            })
+            .fold(0.0, |mut acc, x| {
+                if acc == 0.0 { acc = x; } else { acc = acc / x; }
+                acc
+            });
+        Ok(Some(DataType::Number(Number::Float(value))))
+    }))));
+
+    map.insert("list".to_string(), DataType::Proc(Function(Rc::new(|vec: Vec<DataType>, _: RefCell<Env>| {
+        debug!("Function - name: {:?} - Args: {:?}", "list", vec);
+        Ok(Some(DataType::List(vec)))
+    }))));
+
+    map.insert("car".to_string(), DataType::Proc(Function( Rc::new(|vec: Vec<DataType>, _: RefCell<Env>| {
+        debug!("Function - name: {:?} - Args: {:?}", "car", vec);
+        if vec.len() != 1 {
+            return Err("car function requires one argument only");
+        }
+        let value_option = vec.first();
+        if value_option.is_none() {
+            return Err("car function unknown argument type");
+        }
+        match value_option.unwrap() {
+            &DataType::List(ref vec) => {
+                let value = vec.first();
+                if value.is_some() {
+                    Ok(Some(DataType::from(value.unwrap().clone())))
+                } else {
+                    Err("car function requires a non-empty list")
                 }
-                _ => Err("car function requires an argument of type 'list'")
             }
-        }),
-        env: None
-    }));
+            _ => Err("car function requires an argument of type 'list'")
+        }
+    }))));
 
-    map.insert("cdr".to_string(), DataType::Proc(Procedure {
-        body: Rc::new(|vec: Vec<DataType>, _: RefCell<Env>| {
-            debug!("Procedure - name: {:?} - Args: {:?}", "cdr", vec);
-            if vec.len() != 1 {
-                return Err("cdr function requires one argument only");
-            }
-            let value_option = vec.first();
-            if value_option.is_none() {
-                return Err("cdr function unknown argument type");
-            }
-            match value_option.unwrap() {
-                &DataType::List(ref vec) => {
-                    if vec.len() > 0 {
-                        Ok(Some(DataType::List((&vec[1..]).to_vec())))
-                    } else {
-                        Err("cdr function requires a non-empty list")
-                    }
+    map.insert("cdr".to_string(), DataType::Proc(Function(Rc::new(|vec: Vec<DataType>, _: RefCell<Env>| {
+        debug!("Function - name: {:?} - Args: {:?}", "cdr", vec);
+        if vec.len() != 1 {
+            return Err("cdr function requires one argument only");
+        }
+        let value_option = vec.first();
+        if value_option.is_none() {
+            return Err("cdr function unknown argument type");
+        }
+        match value_option.unwrap() {
+            &DataType::List(ref vec) => {
+                if vec.len() > 0 {
+                    Ok(Some(DataType::List((&vec[1..]).to_vec())))
+                } else {
+                    Err("cdr function requires a non-empty list")
                 }
-                _ => Err("cdr function requires an argument of type 'list'")
             }
-        }),
-        env: None
-    }));
+            _ => Err("cdr function requires an argument of type 'list'")
+        }
+    }))));
 
     define_comparison!(gt, ">", |a,b| { a > b });
     map.insert(">".to_string(), gt);
