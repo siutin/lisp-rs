@@ -83,7 +83,7 @@ struct ReadFromTokenResult {
 
 struct Procedure {
     body: AST,
-    params: HashMap<String, DataType>
+    params: Vec<DataType>
 }
 
 impl Clone for Procedure {
@@ -445,8 +445,6 @@ fn eval(ast_option: Option<AST>, mut env: &mut Env) -> Result<Option<DataType>, 
                             debug!("args: {:?}", args);
                             debug!("body: {:?}", body);
 
-                            let mut map: HashMap<String, DataType> = HashMap::new();
-
                             // convert args AST to Datatype symbol
                             let args_result: Result<Vec<_>,_> = args.iter().map(|ref arg|
                                 match arg {
@@ -461,11 +459,10 @@ fn eval(ast_option: Option<AST>, mut env: &mut Env) -> Result<Option<DataType>, 
                                 .map(|ref mut x| x.clone())
                                 .collect::<Vec<DataType>>();
 
-                            map.insert("args".to_string(), DataType::List(args_meta));
 
                             let procedure = Procedure {
                                 body: AST::Children(body.clone()),
-                                params: map
+                                params: args_meta
                             };
                             debug!("procedure: {:?}", procedure);
 
@@ -527,38 +524,26 @@ fn eval(ast_option: Option<AST>, mut env: &mut Env) -> Result<Option<DataType>, 
 
                                 debug!("args: {:?}", args);
 
-                                let args_tag = "args".to_string();
-                                let args_meta_option = match p.params.get(&args_tag) {
-                                    Some(d) => Some(d.clone()),
-                                    None => None
-                                };
-                                match args_meta_option {
-                                    Some(DataType::List(ref args_meta)) => {
-                                        debug!("arguments meta: {:?}", args_meta);
-                                        let mut map = HashMap::new();
-
-                                        for (i, (name_ref, value_ref)) in args_meta.iter().zip(args.into_iter()).enumerate() {
-                                            debug!("name: {:?} value: {:?}", name_ref, value_ref);
-                                            if let (Some(&DataType::Symbol(ref name)), Some(ref value)) = (Some(name_ref), Some(value_ref)) {
-                                                map.insert(name.to_string(), value.clone());
-                                            } else {
-                                                unreachable!()
-                                            }
-                                        }
-
-                                        let local = RefCell::new(map);
-                                        let parent_env = Box::new(RefCell::new(env.clone()));
-                                        let mut proc_env = Env {
-                                            local: local,
-                                            parent: Some(parent_env)
-                                        };
-
-                                        return eval(Some(p.body.clone()), &mut proc_env)
-                                    }
-                                    Some(_) | None => { return Err("wrong arguments meta datatype") }
-                                }
                                 debug!("Procedure params: {:?}", p.params);
-                                Ok(None)
+                                let mut map = HashMap::new();
+
+                                for (name_ref, value_ref) in p.params.iter().zip(args.into_iter()) {
+                                    debug!("name: {:?} value: {:?}", name_ref, value_ref);
+                                    if let (Some(&DataType::Symbol(ref name)), Some(ref value)) = (Some(name_ref), Some(value_ref)) {
+                                        map.insert(name.to_string(), value.clone());
+                                    } else {
+                                        unreachable!()
+                                    }
+                                }
+
+                                let local = RefCell::new(map);
+                                let parent_env = Box::new(RefCell::new(env.clone()));
+                                let mut proc_env = Env {
+                                    local: local,
+                                    parent: Some(parent_env)
+                                };
+
+                                return eval(Some(p.body.clone()), &mut proc_env)
                             },
                             Some(_) | None => Err("Symbol is not defined.")
                         }
