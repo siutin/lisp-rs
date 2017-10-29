@@ -518,12 +518,12 @@ fn eval(ast_option: Option<AST>, mut env: &mut Env) -> Result<Option<DataType>, 
                                 debug!("first elm symbol - lambda args: {:?}", args);
 
                                 debug!("first elm symbol - procedure params: {:?}", p.params);
-                                let procedure_local = p.env.local.clone();
+                                let mut map = HashMap::new();
 
                                 for (name_ref, value_ref) in p.params.iter().zip(args.into_iter()) {
                                     debug!("first elm symbol - procedure params - name: {:?} value: {:?}", name_ref, value_ref);
                                     if let (Some(&DataType::Symbol(ref name)), Some(ref value)) = (Some(name_ref), Some(value_ref)) {
-                                        procedure_local.borrow_mut().insert(name.to_string(), value.clone());
+                                        map.insert(name.to_string(), value.clone());
                                     } else {
                                         unreachable!()
                                     }
@@ -531,7 +531,7 @@ fn eval(ast_option: Option<AST>, mut env: &mut Env) -> Result<Option<DataType>, 
 
                                 let procedure_parent =  p.env.parent.clone();
                                 let mut proc_env = Env {
-                                    local: procedure_local,
+                                    local: RefCell::new(map),
                                     parent:procedure_parent
                                 };
 
@@ -601,12 +601,12 @@ fn eval(ast_option: Option<AST>, mut env: &mut Env) -> Result<Option<DataType>, 
                                     debug!("first elm lambda - args: {:?}", args);
 
                                     debug!("first elm lambda - procedure params: {:?}", p.params);
-                                    let procedure_local = p.env.local.clone();
+                                    let mut map = HashMap::new();
 
                                     for (name_ref, value_ref) in p.params.iter().zip(args.into_iter()) {
                                         debug!("first elm lambda - procedure params - name: {:?} value: {:?}", name_ref, value_ref);
                                         if let (Some(&DataType::Symbol(ref name)), Some(ref value)) = (Some(name_ref), Some(value_ref)) {
-                                            procedure_local.borrow_mut().insert(name.to_string(), value.clone());
+                                            map.insert(name.to_string(), value.clone());
                                         } else {
                                             unreachable!()
                                         }
@@ -614,7 +614,7 @@ fn eval(ast_option: Option<AST>, mut env: &mut Env) -> Result<Option<DataType>, 
 
                                     let procedure_parent =  p.env.parent.clone();
                                     let mut proc_env = Env {
-                                        local: procedure_local,
+                                        local: RefCell::new(map),
                                         parent:procedure_parent
                                     };
 
