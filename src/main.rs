@@ -166,7 +166,8 @@ enum DataType {
     Number(Number),
     Symbol(String),
     Proc(Function),
-    List(Vec<DataType>)
+    List(Vec<DataType>),
+    Lambda(Procedure)
 }
 
 #[derive(Debug)]
@@ -185,6 +186,7 @@ impl Env {
             Some(&DataType::Symbol(ref ss)) => Some(DataType::Symbol(ss.clone())),
             Some(&DataType::Proc(ref p)) => Some(DataType::Proc(p.clone())),
             Some(&DataType::List(ref l)) => Some(DataType::List(l.clone())),
+            Some(&DataType::Lambda(ref p)) => Some(DataType::Lambda(p.clone())),
             None => {
                 match self.parent {
                     Some(ref some_parent) => {
@@ -405,16 +407,71 @@ fn eval(ast_option: Option<AST>, mut env: &mut Env) -> Result<Option<DataType>, 
                                 AST::Symbol(ref s) => { env.local.borrow_mut().insert(s1.clone(), DataType::Symbol(s.clone())); }
                                 AST::Children(ref v) => {
                                     debug!("children: {:?}", v);
+                                    let procedure_option = match eval(Some(a2.clone()), &mut env) {
+                                        Ok(Some(DataType::Lambda(ref p))) => {
+                                            Some(p.clone())
+                                        }
+                                        Ok(_) => None,
+                                        Err(e) => { return Err(e);}
+                                    };
+
+                                    if let Some(ref p) = procedure_option {
+                                        env.local.borrow_mut().insert(s1.clone(), DataType::Lambda(p.clone()));
+                                    }
                                 }
                             }
                             return Ok(None);
                         }
                         return Err("wrong syntax for define expression");
+                    },
+                    "lambda" => {
+                        debug!("lambda-expression");
+                        if let (Some(&AST::Children(ref args)), Some(&AST::Children(ref body))) = (s1, s2) {
+
+                            debug!("ENV: {:?}", env);
+                            debug!("args: {:?}", args);
+                            debug!("body: {:?}", body);
+
+                            let mut map: HashMap<String, DataType> = HashMap::new();
+
+                            // convert args AST to Datatype symbol
+                            let args_result: Result<Vec<_>,_> = args.iter().map(|ref arg|
+                                match arg {
+                                    &&AST::Symbol(ref arg_string) => Ok(DataType::Symbol(arg_string.to_string())),
+                                    _ => Err("lambda argument must be a symbol")
+                                }
+                            ).collect();
+
+                            if let Result::Err(ref e) = args_result { return Err(e);}
+
+                            let args_meta = args_result.unwrap().iter()
+                                .map(|ref mut x| x.clone())
+                                .collect::<Vec<DataType>>();
+
+                            map.insert("args".to_string(), DataType::List(args_meta));
+
+                            let local = RefCell::new(map);
+                            let env_box = Box::new(RefCell::new(env.clone()));
+                            let mut env = Env {
+                                local,
+                                parent: Some(env_box)
+                            };
+
+                            let procedure = Procedure {
+                                body: AST::Children(body.clone()),
+                                env
+                            };
+                            debug!("procedure: {:?}", procedure);
+
+                            Ok(Some(DataType::Lambda(procedure)))
+                        } else {
+                            Err("syntax error")
+                        }
                     }
                     _ => {
                         debug!("Some(AST::Symbol) but not define");
                         debug!("proc_key : {}", s0);
-                        let data_option = match env.get(s0) {
+                        let mut data_option = match env.get(s0) {
                             Some(d) => Some(d.clone()),
                             None => None
                         };
@@ -442,7 +499,55 @@ fn eval(ast_option: Option<AST>, mut env: &mut Env) -> Result<Option<DataType>, 
                                         None => Ok(None)
                                     }
                                 })
-                            }
+                            },
+                            Some(DataType::Lambda(ref mut p)) => {
+                                debug!("lambda: {:?}", p);
+                                let slice = &list[1..list.len()];
+                                let args_result: Result<Vec<_>, _> = slice.iter()
+                                    .map(|x| eval(Some(x.clone()), &mut env))
+                                    .collect();
+
+                                debug!("args_result: {:?}", args_result);
+
+                                if let Result::Err(ref e) = args_result { return Err(e); }
+
+                                let args = args_result.unwrap().iter()
+                                    .filter(|x| x.is_some())
+                                    .flat_map(|ref mut x| x.clone())
+                                    .collect::<Vec<DataType>>();
+
+                                debug!("args: {:?}", args);
+
+                                let args_tag = "args".to_string();
+                                let args_meta_option = match p.env.get(&args_tag) {
+                                    Some(d) => Some(d.clone()),
+                                    None => None
+                                };
+                                match args_meta_option {
+                                    Some(DataType::List(ref args_meta)) => {
+                                        debug!("arguments meta: {:?}", args_meta);
+                                        for (i, (name_ref, value_ref)) in args_meta.iter().zip(args.into_iter()).enumerate() {
+                                            debug!("name: {:?} value: {:?}", name_ref, value_ref);
+                                            if let (Some(&DataType::Symbol(ref name)), Some(ref value)) = (Some(name_ref), Some(value_ref)) {
+                                                p.env.local.borrow_mut().insert(name.to_string(), value.clone());
+                                            } else {
+                                                unreachable!()
+                                            }
+                                        }
+
+                                        let env_box = Box::new(RefCell::new(env.clone()));
+                                        let mut env_new = Env {
+                                            local: p.env.local.clone(),
+                                            parent: Some(env_box)
+                                        };
+
+                                        return eval(Some(p.body.clone()), &mut env_new)
+                                    }
+                                    Some(_) | None => { return Err("wrong arguments meta datatype") }
+                                }
+                                debug!("Procedure ENV: {:?}", p.env);
+                                Ok(None)
+                            },
                             Some(_) | None => Err("Symbol is not defined.")
                         }
                     }
@@ -725,6 +830,7 @@ fn datatype2str(value: &DataType) -> String {
         &DataType::Number(Number::Float(f)) => format!("{}", f),
         &DataType::Symbol(ref s) => format!("{}", s),
         &DataType::Proc(ref p) => format!("{:?}", p),
+        &DataType::Lambda(ref p) => format!("{:?}", p),
         &DataType::List(ref v) => format!("'({})", v.iter()
             .map(|d| datatype2str(d)).collect::<Vec<_>>().join(" "))
     }
