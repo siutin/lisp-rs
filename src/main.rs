@@ -150,7 +150,7 @@ enum DataType {
 #[derive(Debug)]
 #[derive(Clone)]
 struct Env<'a> {
-    local: &'a RefCell<HashMap<String, DataType>>,
+    local: RefCell<HashMap<String, DataType>>,
     parent: Option<Box<RefCell<Env<'a>>>>
 }
 
@@ -182,7 +182,7 @@ fn main() {
     let local = RefCell::new(setup());
 
     let mut env = Env {
-        local: &local,
+        local,
         parent: None
     };
     debug!("Env: {:?}", env);
@@ -202,6 +202,7 @@ fn repl(mut env: &mut Env) {
             Ok(None) => {}
             Err(e) => println!("error: {}", e)
         }
+        debug!("ENV: {:?}", &env);
     }
 }
 
@@ -380,9 +381,9 @@ fn eval(ast_option: Option<AST>, mut env: &mut Env) -> Result<Option<DataType>, 
                     "define" => {
                         if let (Some(&AST::Symbol(ref s1)), Some(&ref a2)) = (s1, s2) {
                             match a2.clone() {
-                                AST::Integer(i) => { env.clone().local.borrow_mut().insert(s1.clone(), DataType::Number(Number::Integer(i))); }
-                                AST::Float(f) => { env.clone().local.borrow_mut().insert(s1.clone(), DataType::Number(Number::Float(f))); }
-                                AST::Symbol(ref s) => { env.clone().local.borrow_mut().insert(s1.clone(), DataType::Symbol(s.clone())); }
+                                AST::Integer(i) => { env.local.borrow_mut().insert(s1.clone(), DataType::Number(Number::Integer(i))); }
+                                AST::Float(f) => { env.local.borrow_mut().insert(s1.clone(), DataType::Number(Number::Float(f))); }
+                                AST::Symbol(ref s) => { env.local.borrow_mut().insert(s1.clone(), DataType::Symbol(s.clone())); }
                                 AST::Children(_) => unimplemented!()
                             }
                             return Ok(None);
@@ -392,8 +393,7 @@ fn eval(ast_option: Option<AST>, mut env: &mut Env) -> Result<Option<DataType>, 
                     _ => {
                         debug!("Some(AST::Symbol) but not define");
                         debug!("proc_key : {}", s0);
-                        let env_shared = env.clone();
-                        let data_option = match env_shared.get(s0) {
+                        let data_option = match env.get(s0) {
                             Some(d) => Some(d.clone()),
                             None => None
                         };
@@ -402,7 +402,7 @@ fn eval(ast_option: Option<AST>, mut env: &mut Env) -> Result<Option<DataType>, 
                             Some(DataType::Proc(ref f)) => {
                                 let slice = &list[1..list.len()];
                                 let args_result: Result<Vec<_>, _> = slice.iter()
-                                    .map(|x| eval(Some(x.clone()), &mut env_shared.clone()))
+                                    .map(|x| eval(Some(x.clone()), &mut env))
                                     .collect();
 
                                 debug!("args_result: {:?}", args_result);
@@ -414,7 +414,7 @@ fn eval(ast_option: Option<AST>, mut env: &mut Env) -> Result<Option<DataType>, 
                                     .flat_map(|ref mut x| x.clone())
                                     .collect::<Vec<DataType>>();
 
-                                let env_ref = RefCell::new(env_shared.clone());
+                                let env_ref = RefCell::new(env.clone());
                                 f.call(args, env_ref).and_then(|r| {
                                     match r {
                                         Some(data) => Ok(Some(data)),
