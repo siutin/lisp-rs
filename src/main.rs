@@ -404,7 +404,27 @@ fn eval(ast_option: Option<AST>, mut env: &mut Env) -> Result<Option<DataType>, 
                             match a2.clone() {
                                 AST::Integer(i) => { env.local.borrow_mut().insert(s1.clone(), DataType::Number(Number::Integer(i))); }
                                 AST::Float(f) => { env.local.borrow_mut().insert(s1.clone(), DataType::Number(Number::Float(f))); }
-                                AST::Symbol(ref s) => { env.local.borrow_mut().insert(s1.clone(), DataType::Symbol(s.clone())); }
+                                AST::Symbol(ref s) => {
+                                    if s.len() > 1 && s.starts_with("#") {
+                                        let c_option = s.chars().nth(1);
+                                        if let Some('t') = c_option {
+                                            env.local.borrow_mut().insert(s1.clone(), DataType::Bool(true));
+                                        } else if let Some('f') = c_option {
+                                            env.local.borrow_mut().insert(s1.clone(), DataType::Bool(false));
+                                        } else {
+                                            return Err("syntax error");
+                                        }
+                                    } else if s.starts_with("\"") && s.ends_with("\"") {
+                                        env.local.borrow_mut().insert(s1.clone(), DataType::Symbol((&s[1..s.len() - 1]).to_string()));
+                                    } else {
+                                        match env.get(&s) {
+                                            Some(data) => {
+                                                env.local.borrow_mut().insert(s1.clone(), data);
+                                            },
+                                            None => { return Err("symbol is not defined"); }
+                                        }
+                                    }
+                                }
                                 AST::Children(ref v) => {
                                     debug!("children: {:?}", v);
                                     let procedure_option = match eval(Some(a2.clone()), &mut env) {
