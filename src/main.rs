@@ -83,14 +83,14 @@ struct ReadFromTokenResult {
 
 struct Procedure {
     body: AST,
-    env: Env
+    params: HashMap<String, DataType>
 }
 
 impl Clone for Procedure {
     fn clone(&self) -> Self {
         Procedure {
             body: self.body.clone(),
-            env: self.env.clone()
+            params: self.params.clone()
         }
     }
 }
@@ -99,7 +99,7 @@ impl fmt::Debug for Procedure {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("Procedure")
             .field("body", &self.body)
-            .field("env",&self.env).finish()
+            .field("params",&self.params).finish()
     }
 }
 
@@ -418,11 +418,9 @@ fn eval(ast_option: Option<AST>, mut env: &mut Env) -> Result<Option<DataType>, 
                                         env.local.borrow_mut().insert(s1.clone(), DataType::Symbol((&s[1..s.len() - 1]).to_string()));
                                     } else {
                                         match env.get(&s) {
-                                            Some(data) => {
-                                                env.local.borrow_mut().insert(s1.clone(), data);
-                                            },
+                                            Some(data) => env.local.borrow_mut().insert(s1.clone(), data),
                                             None => { return Err("symbol is not defined"); }
-                                        }
+                                        };
                                     }
                                 }
                                 AST::Children(ref v) => {
@@ -465,16 +463,9 @@ fn eval(ast_option: Option<AST>, mut env: &mut Env) -> Result<Option<DataType>, 
 
                             map.insert("args".to_string(), DataType::List(args_meta));
 
-                            let local = RefCell::new(map);
-                            let env_box = Box::new(RefCell::new(env.clone()));
-                            let mut env = Env {
-                                local,
-                                parent: Some(env_box)
-                            };
-
                             let procedure = Procedure {
                                 body: AST::Children(body.clone()),
-                                env
+                                params: map
                             };
                             debug!("procedure: {:?}", procedure);
 
@@ -490,6 +481,9 @@ fn eval(ast_option: Option<AST>, mut env: &mut Env) -> Result<Option<DataType>, 
                             Some(d) => Some(d.clone()),
                             None => None
                         };
+
+                        debug!("data_option: {:?}", data_option);
+                        debug!("ENV: {:?}", env);
 
                         match data_option {
                             Some(DataType::Proc(ref f)) => {
@@ -534,33 +528,36 @@ fn eval(ast_option: Option<AST>, mut env: &mut Env) -> Result<Option<DataType>, 
                                 debug!("args: {:?}", args);
 
                                 let args_tag = "args".to_string();
-                                let args_meta_option = match p.env.get(&args_tag) {
+                                let args_meta_option = match p.params.get(&args_tag) {
                                     Some(d) => Some(d.clone()),
                                     None => None
                                 };
                                 match args_meta_option {
                                     Some(DataType::List(ref args_meta)) => {
                                         debug!("arguments meta: {:?}", args_meta);
+                                        let mut map = HashMap::new();
+
                                         for (i, (name_ref, value_ref)) in args_meta.iter().zip(args.into_iter()).enumerate() {
                                             debug!("name: {:?} value: {:?}", name_ref, value_ref);
                                             if let (Some(&DataType::Symbol(ref name)), Some(ref value)) = (Some(name_ref), Some(value_ref)) {
-                                                p.env.local.borrow_mut().insert(name.to_string(), value.clone());
+                                                map.insert(name.to_string(), value.clone());
                                             } else {
                                                 unreachable!()
                                             }
                                         }
 
-                                        let env_box = Box::new(RefCell::new(env.clone()));
-                                        let mut env_new = Env {
-                                            local: p.env.local.clone(),
-                                            parent: Some(env_box)
+                                        let local = RefCell::new(map);
+                                        let parent_env = Box::new(RefCell::new(env.clone()));
+                                        let mut proc_env = Env {
+                                            local: local,
+                                            parent: Some(parent_env)
                                         };
 
-                                        return eval(Some(p.body.clone()), &mut env_new)
+                                        return eval(Some(p.body.clone()), &mut proc_env)
                                     }
                                     Some(_) | None => { return Err("wrong arguments meta datatype") }
                                 }
-                                debug!("Procedure ENV: {:?}", p.env);
+                                debug!("Procedure params: {:?}", p.params);
                                 Ok(None)
                             },
                             Some(_) | None => Err("Symbol is not defined.")
