@@ -427,17 +427,12 @@ fn eval(ast_option: Option<AST>, mut env: &mut Env) -> Result<Option<DataType>, 
                                 }
                                 AST::Children(ref v) => {
                                     debug!("children: {:?}", v);
-                                    let procedure_option = match eval(Some(a2.clone()), &mut env) {
-                                        Ok(Some(DataType::Lambda(ref p))) => {
-                                            Some(p.clone())
-                                        }
+                                    match eval(Some(a2.clone()), &mut env) {
+                                        Ok(Some(DataType::Lambda(ref p))) => env.local.borrow_mut().insert(s1.clone(), DataType::Lambda(p.clone())),
+                                        Ok(Some(DataType::List(ref v))) => env.local.borrow_mut().insert(s1.clone(), DataType::List(v.clone())),
                                         Ok(_) => None,
-                                        Err(e) => { return Err(e);}
+                                        Err(e) => { return Err(e); }
                                     };
-
-                                    if let Some(ref p) = procedure_option {
-                                        env.local.borrow_mut().insert(s1.clone(), DataType::Lambda(p.clone()));
-                                    }
                                 }
                             }
                             return Ok(None);
