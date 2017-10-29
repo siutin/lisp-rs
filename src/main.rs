@@ -444,17 +444,10 @@ fn eval(ast_option: Option<AST>, mut env: &mut Env) -> Result<Option<DataType>, 
                                 .map(|ref mut x| x.clone())
                                 .collect::<Vec<DataType>>();
 
-                            let local = RefCell::new(HashMap::new());
-                            let env_box = Box::new(RefCell::new(env.clone()));
-                            let procedure_env = Env {
-                                local,
-                                parent: Some(env_box)
-                            };
-
                             let procedure = Procedure {
                                 body: AST::Children(body.clone()),
                                 params: args_meta,
-                                env: procedure_env
+                                env: env.clone()
                             };
                             debug!("procedure: {:?}", procedure);
 
@@ -529,10 +522,10 @@ fn eval(ast_option: Option<AST>, mut env: &mut Env) -> Result<Option<DataType>, 
                                     }
                                 }
 
-                                let procedure_parent =  p.env.parent.clone();
+                                let procedure_parent =  p.env.clone();
                                 let mut proc_env = Env {
                                     local: RefCell::new(map),
-                                    parent:procedure_parent
+                                    parent: Some(Box::new(RefCell::new(procedure_parent)))
                                 };
 
                                 debug!("first elm symbol - lambda Procedure env: {:?}", proc_env);
@@ -612,10 +605,10 @@ fn eval(ast_option: Option<AST>, mut env: &mut Env) -> Result<Option<DataType>, 
                                         }
                                     }
 
-                                    let procedure_parent =  p.env.parent.clone();
+                                    let procedure_parent =  p.env.clone();
                                     let mut proc_env = Env {
                                         local: RefCell::new(map),
-                                        parent:procedure_parent
+                                        parent: Some(Box::new(RefCell::new(procedure_parent)))
                                     };
 
                                     debug!("first elm lambda - lambda Procedure env: {:?}", proc_env);
