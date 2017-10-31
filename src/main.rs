@@ -497,71 +497,35 @@ fn eval(ast_option: Option<AST>, env: Rc<RefCell<Env>>) -> Result<Option<DataTyp
                         match data_option {
                             Some(DataType::Proc(ref f)) => {
                                 let slice = &list[1..list.len()];
-                                let args_result: Result<Vec<_>, _> = slice.iter()
-                                    .map(|x| eval(Some(x.clone()), env.clone()))
-                                    .collect();
-
-                                debug!("first elm symbol - function - args {:?}", args_result);
-
-                                if let Result::Err(ref e) = args_result { return Err(e); }
-
-                                let args = args_result.unwrap().iter()
-                                    .filter(|x| x.is_some())
-                                    .flat_map(|ref mut x| x.clone())
-                                    .collect::<Vec<DataType>>();
-
-                                f.call(args, env).and_then(|r| {
-                                    match r {
-                                        Some(data) => Ok(Some(data)),
-                                        None => Ok(None)
-                                    }
-                                })
+                                execute(f, slice, env)
                             },
                             Some(DataType::Lambda(ref mut p)) => {
                                 debug!("first elm symbol - lambda: {:?}", p);
                                 let slice = &list[1..list.len()];
-                                let args_result: Result<Vec<_>, _> = slice.iter()
-                                    .map(|x| eval(Some(x.clone()), env.clone()))
-                                    .collect();
+                                match prepare_arguments(slice, env.clone()) {
+                                    Ok(args) => {
+                                        debug!("first elm symbol - procedure params: {:?}", p.params);
+                                        let procedure_local = p.env.borrow_mut().local.clone();
 
-                                debug!("first elm symbol - lambda args: {:?}", args_result);
+                                        for (name_ref, value_ref) in p.params.iter().zip(args.into_iter()) {
+                                            debug!("first elm symbol - procedure params - name: {:?} value: {:?}", name_ref, value_ref);
+                                            if let (Some(&DataType::Symbol(ref name)), Some(ref value)) = (Some(name_ref), Some(value_ref)) {
+                                                procedure_local.borrow_mut().insert(name.to_string(), value.clone());
+                                            } else {
+                                                unreachable!()
+                                            }
+                                        }
 
-                                if let Result::Err(ref e) = args_result { return Err(e); }
+                                        let proc_env = Env {
+                                            local: procedure_local,
+                                            parent: p.env.borrow_mut().parent.clone()
+                                        };
 
-                                let args = args_result.unwrap().iter()
-                                    .filter(|x| x.is_some())
-                                    .flat_map(|ref mut x| x.clone())
-                                    .collect::<Vec<DataType>>();
-
-                                debug!("first elm symbol - lambda args: {:?}", args);
-
-                                debug!("first elm symbol - procedure params: {:?}", p.params);
-                                let procedure_local =  p.env.borrow_mut().local.clone();
-
-                                for (name_ref, value_ref) in p.params.iter().zip(args.into_iter()) {
-                                    debug!("first elm symbol - procedure params - name: {:?} value: {:?}", name_ref, value_ref);
-                                    if let (Some(&DataType::Symbol(ref name)), Some(ref value)) = (Some(name_ref), Some(value_ref)) {
-                                        procedure_local.borrow_mut().insert(name.to_string(), value.clone());
-                                    } else {
-                                        unreachable!()
-                                    }
+                                        debug!("proc_env: {:?}", proc_env);
+                                        return eval(Some(p.body.clone()), Rc::new(RefCell::new(proc_env)))
+                                    },
+                                    Err(e) => return Err(e)
                                 }
-
-                                let procedure_parent_option =  p.env.borrow_mut().parent.clone();
-                                let procedure_parent_option_clone =  procedure_parent_option.clone();
-                                let mut proc_env = Env {
-                                    local: procedure_local,
-                                    parent: procedure_parent_option //Some(Box::new(RefCell::new(env.clone())))
-                                };
-
-                                debug!("proc_env: {:?}", proc_env);
-                                match procedure_parent_option_clone {
-                                    Some(procedure_parent) => { debug!("procedure_parent: {:?}", procedure_parent); }
-                                    None => { debug!("procedure_parent: None"); }
-                                }
-
-                                debug!("first elm symbol - lambda Procedure env: {:?}", proc_env);
-                                return eval(Some(p.body.clone()), Rc::new(RefCell::new(proc_env)))
                             },
                             Some(_) | None => Err("symbol is not defined.")
                         }
@@ -580,74 +544,39 @@ fn eval(ast_option: Option<AST>, env: Rc<RefCell<Env>>) -> Result<Option<DataTyp
                         Ok(Some(DataType::Proc(ref f))) => {
                             debug!("first elm function - function: {:?}", f);
                             match rest_option {
-                                Some(rest) => {
-                                    let args_result: Result<Vec<_>, _> = rest.iter()
-                                        .map(|x| eval(Some(x.clone()), env.clone()))
-                                        .collect();
-                                    debug!("first elm function - args: {:?}", args_result);
-                                    if let Result::Err(ref e) = args_result { return Err(e); }
-
-                                    let args = args_result.unwrap().iter()
-                                        .filter(|x| x.is_some())
-                                        .flat_map(|ref mut x| x.clone())
-                                        .collect::<Vec<DataType>>();
-
-                                    f.call(args, env.clone()).and_then(|r| {
-                                        match r {
-                                            Some(data) => Ok(Some(data)),
-                                            None => Ok(None)
-                                        }
-                                    })
-                                },
-                                None => {
-                                    unimplemented!()
-                                }
+                                Some(rest) => execute(f, rest, env),
+                                None => unimplemented!()
                             }
                         },
                         Ok(Some(DataType::Lambda(ref mut p))) => {
                             debug!("first elm lambda - lambda: {:?}", p);
-
                             match rest_option {
                                 Some(rest) => {
-                                    let args_result: Result<Vec<_>, _> = rest.iter()
-                                        .map(|x| eval(Some(x.clone()), env.clone()))
-                                        .collect();
+                                    match prepare_arguments(rest, env.clone()) {
+                                        Ok(args) => {
+                                            debug!("first elm lambda - procedure params: {:?}", p.params);
 
-                                    debug!("first elm lambda - args: {:?}", args_result);
+                                            let p_env_borrow_mut = p.env.borrow_mut();
+                                            for (name_ref, value_ref) in p.params.iter().zip(args.into_iter()) {
+                                                debug!("first elm lambda - procedure params - name: {:?} value: {:?}", name_ref, value_ref);
+                                                if let (Some(&DataType::Symbol(ref name)), Some(ref value)) = (Some(name_ref), Some(value_ref)) {
+                                                    p_env_borrow_mut.local.borrow_mut().insert(name.to_string(), value.clone());
+                                                } else {
+                                                    unreachable!()
+                                                }
+                                            }
 
-                                    if let Result::Err(ref e) = args_result { return Err(e); }
+                                            let proc_env = Env {
+                                                local: p_env_borrow_mut.local.clone(),
+                                                parent: p_env_borrow_mut.parent.clone()
+                                            };
 
-                                    let args = args_result.unwrap().iter()
-                                        .filter(|x| x.is_some())
-                                        .flat_map(|ref mut x| x.clone())
-                                        .collect::<Vec<DataType>>();
-
-                                    debug!("first elm lambda - args: {:?}", args);
-
-                                    debug!("first elm lambda - procedure params: {:?}", p.params);
-//                                    let procedure_local =  p.env.borrow_mut().local.clone();
-
-                                    let p_env_borrow_mut = p.env.borrow_mut();
-
-                                    for (name_ref, value_ref) in p.params.iter().zip(args.into_iter()) {
-                                        debug!("first elm lambda - procedure params - name: {:?} value: {:?}", name_ref, value_ref);
-                                        if let (Some(&DataType::Symbol(ref name)), Some(ref value)) = (Some(name_ref), Some(value_ref)) {
-                                            p_env_borrow_mut.local.borrow_mut().insert(name.to_string(), value.clone());
-                                        } else {
-                                            unreachable!()
-                                        }
+                                            debug!("proc_env: {:?}", proc_env);
+                                            return eval(Some(p.body.clone()), Rc::new(RefCell::new(proc_env)))
+                                        },
+                                        Err(e) => return Err(e)
                                     }
-
-                                    let mut proc_env = Env {
-                                        local: p_env_borrow_mut.local.clone(),
-                                        parent: p_env_borrow_mut.parent.clone()
-                                    };
-
-                                    debug!("proc_env: {:?}", proc_env);
-
-                                    debug!("first elm lambda - lambda Procedure env: {:?}", proc_env);
-                                    return eval(Some(p.body.clone()), Rc::new(RefCell::new(proc_env)))
-                                },
+                                }
                                 None => {
                                     unimplemented!()
                                 }
@@ -672,6 +601,34 @@ fn eval(ast_option: Option<AST>, env: Rc<RefCell<Env>>) -> Result<Option<DataTyp
             };
             Ok(data)
         }
+    }
+}
+
+fn prepare_arguments(arguments: &[AST], env: Rc<RefCell<Env>>) -> Result<Vec<DataType>, &'static str> {
+    let args_result: Result<Vec<_>, _> = arguments.iter()
+        .map(|x| eval(Some(x.clone()), env.clone()))
+        .collect();
+    debug!("args: {:?}", args_result);
+    if let Result::Err(ref e) = args_result { return Err(e); }
+
+    let args = args_result.unwrap().iter()
+        .filter(|x| x.is_some())
+        .flat_map(|ref mut x| x.clone())
+        .collect::<Vec<DataType>>();
+    Ok(args)
+}
+
+fn execute(f: &Function, arguments: &[AST], env: Rc<RefCell<Env>>) -> Result<Option<DataType>, &'static str> {
+    match prepare_arguments(arguments, env.clone()) {
+        Ok(args) => {
+            f.call(args, env.clone()).and_then(|r| {
+                match r {
+                    Some(data) => Ok(Some(data)),
+                    None => Ok(None)
+                }
+            })
+        },
+        Err(e) => return Err(e)
     }
 }
 
