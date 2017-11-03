@@ -67,7 +67,9 @@ macro_rules! define_comparison {
     };
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
+#[derive(Debug)]
+#[derive(PartialEq)]
 pub enum AST {
     Integer(i64),
     Float(f64),
@@ -76,12 +78,14 @@ pub enum AST {
 }
 
 #[derive(Debug)]
+#[derive(PartialEq)]
 pub struct ReadFromTokenResult {
     pub remain: Vec<String>,
     pub result: AST
 }
 
 #[derive(Clone)]
+#[derive(PartialEq)]
 pub struct Procedure {
     body: AST,
     params: Vec<DataType>,
@@ -121,7 +125,17 @@ impl fmt::Debug for Function {
     }
 }
 
-#[derive(Clone, Debug)]
+impl std::cmp::PartialEq for Function {
+    fn eq(&self, other: &Function) -> bool {
+        let self_raw = &self.0 as *const _;
+        let other_raw = &other.0 as *const _;
+        self_raw == other_raw
+    }
+}
+
+#[derive(Clone)]
+#[derive(Debug)]
+#[derive(PartialEq)]
 pub enum Number {
     Integer(i64),
     Float(f64),
@@ -158,6 +172,7 @@ impl Into<Number> for i64 {
 }
 
 #[derive(Clone, Debug)]
+#[derive(PartialEq)]
 pub enum DataType {
     Bool(bool),
     Number(Number),
@@ -169,6 +184,7 @@ pub enum DataType {
 
 #[derive(Debug)]
 #[derive(Clone)]
+#[derive(PartialEq)]
 pub struct Env {
     pub local: RefCell<HashMap<String, DataType>>,
     pub parent: Option<Box<Rc<RefCell<Env>>>>
