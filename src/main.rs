@@ -81,11 +81,23 @@ struct ReadFromTokenResult {
     result: AST
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 struct Procedure {
     body: AST,
     params: Vec<DataType>,
     env: Rc<RefCell<Env>>
+}
+
+impl fmt::Debug for Procedure {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let env_raw = &self.env as *const _;
+
+        f.debug_struct("Procedure")
+            .field("body", &self.body)
+            .field("params", &self.params)
+            .field("env", &env_raw)
+            .finish()
+    }
 }
 
 struct Function(pub Rc<Fn(Vec<DataType>, Rc<RefCell<Env>>) -> Result<Option<DataType>, &'static str>>);
