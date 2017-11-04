@@ -48,14 +48,26 @@ fn lambda_call_test() {
 
 #[test]
 fn nested_lambda_test() {
-    let test_result = run(r#"
+    {
+        let test_result = run(r#"
     (define repeat (lambda (f) (lambda (x) (f (f x)))))
     repeat
     "#);
-    if let Ok(Some(DataType::Lambda(_))) = test_result.value {
-        assert!(true);
-    } else {
-        assert!(false);
+        if let Ok(Some(DataType::Lambda(_))) = test_result.value {
+            assert!(true);
+        } else {
+            assert!(false);
+        }
+    }
+    {
+        let test_result = run(r#"
+        (define add3
+            (lambda (x y z)
+                (+ ((lambda (x y)
+                     (+ x y)) x y) z)))
+        (add3 2 3 4)
+        "#);
+        assert_eq!(Ok(Some(DataType::Number(Number::Integer(9)))), test_result.value);
     }
 }
 
