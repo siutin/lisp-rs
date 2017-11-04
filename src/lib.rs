@@ -272,7 +272,7 @@ fn read_from_tokens(mut tokens: Vec<String>) -> Result<ReadFromTokenResult, &'st
                         debug!("rest_str: {:?}", rest_str);
                         match rest_str.iter().position(|string_tag| if string_tag.ends_with('\"') { true } else { false }) {
                             Some(i) => {
-                                debug!("detect a end quote of string");
+                                debug!("detect an end quote of string");
                                 let str_result = (rest_str[0..i + 1]).join(" ");
                                 let rest_tokens = (rest_str[i + 1..]).iter().map(|&ref x| x.to_string()).collect::<Vec<String>>();
                                 debug!("str_result: {:?}", str_result);
@@ -280,7 +280,7 @@ fn read_from_tokens(mut tokens: Vec<String>) -> Result<ReadFromTokenResult, &'st
                                 vec.push(AST::Symbol(str_result));
                                 tmp_tokens = rest_tokens.clone();
                             }
-                            None => { return Err("can not find a end quote"); }
+                            None => { return Err("can not find an end quote"); }
                         }
                     } else {
                         match read_from_tokens(tmp_tokens.clone()) {
