@@ -10,3 +10,10 @@ env_logger = "0.4.3"
 [[bin]]
 name = "main"
 path = "src/main.rs"
+
+[[bench]]
+name = "bench"
+path = "src/bench.rs"
+
+[features]
+unstable = []
