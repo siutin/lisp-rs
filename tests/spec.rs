@@ -16,9 +16,9 @@ fn variable_retrieving_test() {
 #[test]
 fn lambda_retrieving_test() {
     let test_result = run(r#"
-                                          (define circle-area (lambda (r) (* pi (* r r))))
-                                          (circle-area 3)
-                                        "#);
+    (define circle-area (lambda (r) (* pi (* r r))))
+    (circle-area 3)
+    "#);
     assert_eq!(Ok(Some(DataType::Number(Number::Float(28.274333882308138)))), test_result.value);
 }
 
@@ -31,27 +31,27 @@ fn if_expression_test() {
 #[test]
 fn recursive_lambda_test() {
     let test_result = run(r#"
-                                            (define fact (lambda (n) (if (<= n 1) 1 (* n (fact (- n 1))))))
-                                            (fact 10)
-                                        "#);
+    (define fact (lambda (n) (if (<= n 1) 1 (* n (fact (- n 1))))))
+    (fact 10)
+    "#);
     assert_eq!(Ok(Some(DataType::Number(Number::Integer(3628800)))), test_result.value);
 }
 
 #[test]
 fn lambda_call_test() {
     let test_result = run(r#"
-                                            (define twice (lambda (x) (* 2 x)))
-                                            (twice 5)
-                                        "#);
+    (define twice (lambda (x) (* 2 x)))
+    (twice 5)
+    "#);
     assert_eq!(Ok(Some(DataType::Number(Number::Integer(10)))), test_result.value);
 }
 
 #[test]
 fn nested_lambda_test() {
     let test_result = run(r#"
-                                            (define repeat (lambda (f) (lambda (x) (f (f x)))))
-                                            repeat
-                                        "#);
+    (define repeat (lambda (f) (lambda (x) (f (f x)))))
+    repeat
+    "#);
     if let Ok(Some(DataType::Lambda(_))) = test_result.value {
         assert!(true);
     } else {
@@ -62,10 +62,10 @@ fn nested_lambda_test() {
 #[test]
 fn complex_lambda_test() {
     let test_result = run(r#"
-                                            (define twice (lambda (x) (* 2 x)))
-                                            (define repeat (lambda (f) (lambda (x) (f (f x)))))
-                                            ((repeat (repeat twice)) 10)
-                                        "#);
+    (define twice (lambda (x) (* 2 x)))
+    (define repeat (lambda (f) (lambda (x) (f (f x)))))
+    ((repeat (repeat twice)) 10)
+    "#);
     assert_eq!(Ok(Some(DataType::Number(Number::Integer(160)))), test_result.value);
 }
 
