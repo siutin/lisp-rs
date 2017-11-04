@@ -191,6 +191,22 @@ mod std_function {
         }
     }
 
+    #[test]
+    fn not() {
+        {
+            let test_result = run("(not #t)");
+            assert_eq!(Ok(Some(DataType::Bool(false))), test_result.value);
+        }
+        {
+            let test_result = run("(not #f)");
+            assert_eq!(Ok(Some(DataType::Bool(true))), test_result.value);
+        }
+        {
+            let test_result = run("(not 1)");
+            assert_eq!(Err("not function requires an argument of type 'boolean'"), test_result.value);
+        }
+    }
+
     mod type_checking_function {
         use super::*;
 
