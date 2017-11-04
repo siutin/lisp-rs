@@ -69,6 +69,19 @@ fn complex_lambda_test() {
     assert_eq!(Ok(Some(DataType::Number(Number::Integer(160)))), test_result.value);
 }
 
+#[test]
+fn state_test() {
+    let env_ref = default_env();
+    let test_result0 = run_with_env("s", env_ref.clone());
+    assert_eq!(Err("symbol is not defined."), test_result0.value);
+
+    let test_result1 = run_with_env("(define s \"hello world\")", env_ref.clone());
+    assert_eq!(Ok(None), test_result1.value);
+
+    let test_result2 = run_with_env("s", env_ref.clone());
+    assert_eq!(Ok(Some(DataType::Symbol("hello world".to_string()))), test_result2.value);
+}
+
 mod op {
     use super::*;
 
@@ -290,8 +303,7 @@ struct TestResult {
     env: Rc<RefCell<Env>>
 }
 
-fn run(s: &str) -> TestResult {
-    env_logger::init();
+fn default_env() -> Rc<RefCell<Env>> {
     let local = RefCell::new(setup());
     let env = Env {
         local,
@@ -299,6 +311,16 @@ fn run(s: &str) -> TestResult {
     };
 
     let env_ref = Rc::new(RefCell::new(env));
+    env_ref
+}
+
+fn run(s: &str) -> TestResult {
+    env_logger::init();
+    run_with_env(s, default_env().clone())
+}
+
+fn run_with_env(s: &str, env_ref: Rc<RefCell<Env>>) -> TestResult {
+    env_logger::init();
     let result = parse(s)
         .and_then(|ast| eval(Some(ast.result), env_ref.clone()));
 
