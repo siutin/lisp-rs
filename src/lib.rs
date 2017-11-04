@@ -440,7 +440,6 @@ pub fn eval(ast_option: Option<AST>, env: Rc<RefCell<Env>>) -> Result<Option<Dat
                                         let env_borrow_mut = env.borrow_mut();
                                         env_borrow_mut.local.borrow_mut().insert(s1.clone(), DataType::Symbol((&s[1..s.len() - 1]).to_string()));
                                     } else {
-
                                         let data_option = env.borrow().get(&s);
                                         if let Some(data) = data_option {
                                             let env_borrow_mut = env.borrow_mut();
@@ -468,24 +467,23 @@ pub fn eval(ast_option: Option<AST>, env: Rc<RefCell<Env>>) -> Result<Option<Dat
                             return Ok(None);
                         }
                         return Err("wrong syntax for define expression");
-                    },
+                    }
                     "lambda" => {
                         debug!("lambda-expression");
                         if let (Some(&AST::Children(ref args)), Some(&AST::Children(ref body))) = (s1, s2) {
-
                             debug!("ENV: {:?}", env);
                             debug!("args: {:?}", args);
                             debug!("body: {:?}", body);
 
                             // convert args AST to Datatype symbol
-                            let args_result: Result<Vec<_>,_> = args.iter().map(|ref arg|
+                            let args_result: Result<Vec<_>, _> = args.iter().map(|ref arg|
                                 match arg {
                                     &&AST::Symbol(ref arg_string) => Ok(DataType::Symbol(arg_string.to_string())),
                                     _ => Err("lambda argument must be a symbol")
                                 }
                             ).collect();
 
-                            if let Result::Err(ref e) = args_result { return Err(e);}
+                            if let Result::Err(ref e) = args_result { return Err(e); }
 
                             let args_meta = args_result.unwrap().iter()
                                 .map(|ref mut x| x.clone())
@@ -527,7 +525,7 @@ pub fn eval(ast_option: Option<AST>, env: Rc<RefCell<Env>>) -> Result<Option<Dat
                             Some(DataType::Proc(ref f)) => {
                                 let slice = &list[1..list.len()];
                                 execute(f, slice, env)
-                            },
+                            }
                             Some(DataType::Lambda(ref mut p)) => {
                                 debug!("first elm symbol - lambda: {:?}", p);
                                 let slice = &list[1..list.len()];
@@ -551,24 +549,22 @@ pub fn eval(ast_option: Option<AST>, env: Rc<RefCell<Env>>) -> Result<Option<Dat
                                         };
 
                                         debug!("proc_env: {:?}", proc_env);
-                                        return eval(Some(p.body.clone()), Rc::new(RefCell::new(proc_env)))
-                                    },
+                                        return eval(Some(p.body.clone()), Rc::new(RefCell::new(proc_env)));
+                                    }
                                     Err(e) => return Err(e)
                                 }
-                            },
+                            }
                             Some(_) | None => Err("symbol is not defined.")
                         }
                     }
                 }
             } else {
-
                 debug!("first ast is not a symbol");
                 debug!("proc_key : {:?}", s0);
 
                 tuplet!((s0_option,*rest_option) = list);
 
                 if let Some(&AST::Children(_)) = s0_option {
-
                     match eval(Some(list.first().unwrap().clone()), env.clone()) {
                         Ok(Some(DataType::Proc(ref f))) => {
                             debug!("first elm function - function: {:?}", f);
@@ -576,7 +572,7 @@ pub fn eval(ast_option: Option<AST>, env: Rc<RefCell<Env>>) -> Result<Option<Dat
                                 Some(rest) => execute(f, rest, env),
                                 None => unimplemented!()
                             }
-                        },
+                        }
                         Ok(Some(DataType::Lambda(ref mut p))) => {
                             debug!("first elm lambda - lambda: {:?}", p);
                             match rest_option {
@@ -601,8 +597,8 @@ pub fn eval(ast_option: Option<AST>, env: Rc<RefCell<Env>>) -> Result<Option<Dat
                                             };
 
                                             debug!("proc_env: {:?}", proc_env);
-                                            return eval(Some(p.body.clone()), Rc::new(RefCell::new(proc_env)))
-                                        },
+                                            return eval(Some(p.body.clone()), Rc::new(RefCell::new(proc_env)));
+                                        }
                                         Err(e) => return Err(e)
                                     }
                                 }
@@ -610,11 +606,10 @@ pub fn eval(ast_option: Option<AST>, env: Rc<RefCell<Env>>) -> Result<Option<Dat
                                     unimplemented!()
                                 }
                             }
-                        },
-                        Ok(_) => { return Err("unsupported data type on first element")},
-                        Err(e) => { return  Err(e) }
+                        }
+                        Ok(_) => { return Err("unsupported data type on first element"); }
+                        Err(e) => { return Err(e); }
                     }
-
                 } else {
                     return Err("syntax error");
                 }
@@ -656,7 +651,7 @@ fn execute(f: &Function, arguments: &[AST], env: Rc<RefCell<Env>>) -> Result<Opt
                     None => Ok(None)
                 }
             })
-        },
+        }
         Err(e) => return Err(e)
     }
 }
