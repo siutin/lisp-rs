@@ -193,6 +193,7 @@ pub enum DataType {
     Bool(bool),
     Number(Number),
     Symbol(String),
+    String(String),
     Proc(Function),
     List(Vec<DataType>),
     Lambda(Procedure)
@@ -213,6 +214,7 @@ impl Env {
             Some(&DataType::Number(Number::Integer(i))) => Some(DataType::Number(Number::Integer(i))),
             Some(&DataType::Number(Number::Float(f))) => Some(DataType::Number(Number::Float(f))),
             Some(&DataType::Symbol(ref ss)) => Some(DataType::Symbol(ss.clone())),
+            Some(&DataType::String(ref ss)) => Some(DataType::String(ss.clone())),
             Some(&DataType::Proc(ref p)) => Some(DataType::Proc(p.clone())),
             Some(&DataType::List(ref l)) => Some(DataType::List(l.clone())),
             Some(&DataType::Lambda(ref p)) => Some(DataType::Lambda(p.clone())),
@@ -353,7 +355,10 @@ pub fn eval(ast_option: Option<AST>, env: Rc<RefCell<Env>>) -> Result<Option<Dat
     match ast_option.clone() {
         Some(AST::Symbol(s)) => {
             debug!("ast is a symbol: {:?}", s);
-            if s.len() > 1 && s.starts_with("#") {
+            if s.starts_with("#") {
+                if s.len() != 2 {
+                    return Err("syntax error");
+                }
                 let c_option = s.chars().nth(1);
                 if let Some('t') = c_option {
                     Ok(Some(DataType::Bool(true)))
@@ -362,8 +367,11 @@ pub fn eval(ast_option: Option<AST>, env: Rc<RefCell<Env>>) -> Result<Option<Dat
                 } else {
                     Err("syntax error")
                 }
+            } else if s.len() > 1 && s.starts_with("'") {
+                let slice = &s[1..s.len()];
+                Ok(Some(DataType::Symbol(slice.to_string())))
             } else if s.starts_with("\"") && s.ends_with("\"") {
-                Ok(Some(DataType::Symbol((&s[1..s.len() - 1]).to_string())))
+                Ok(Some(DataType::String((&s[1..s.len() - 1]).to_string())))
             } else {
                 match env.borrow().get(&s) {
                     Some(data) => Ok(Some(data)),
@@ -438,7 +446,7 @@ pub fn eval(ast_option: Option<AST>, env: Rc<RefCell<Env>>) -> Result<Option<Dat
                                         }
                                     } else if s.starts_with("\"") && s.ends_with("\"") {
                                         let env_borrow_mut = env.borrow_mut();
-                                        env_borrow_mut.local.borrow_mut().insert(s1.clone(), DataType::Symbol((&s[1..s.len() - 1]).to_string()));
+                                        env_borrow_mut.local.borrow_mut().insert(s1.clone(), DataType::String((&s[1..s.len() - 1]).to_string()));
                                     } else {
                                         let data_option = env.borrow().get(&s);
                                         if let Some(data) = data_option {
@@ -845,6 +853,7 @@ pub fn setup() -> HashMap<String, DataType> {
                 Some(&DataType::Number(ref n)) => Ok(Some(DataType::Number(n.clone()))),
                 Some(&DataType::Bool(b)) => Ok(Some(DataType::Bool(b))),
                 Some(&DataType::Symbol(ref s)) => Ok(Some(DataType::Symbol(s.clone()))),
+                Some(&DataType::String(ref s)) => Ok(Some(DataType::String(s.clone()))),
                 Some(&DataType::Proc(ref p)) => Ok(Some(DataType::Proc(p.clone()))),
                 Some(&DataType::Lambda(ref l)) => Ok(Some(DataType::Lambda(l.clone()))),
                 None => { return Err("append function unknown argument type"); }
@@ -1137,6 +1146,21 @@ pub fn setup() -> HashMap<String, DataType> {
         }
     }))));
 
+    map.insert("string?".to_string(), DataType::Proc(Function(Rc::new(|vec: Vec<DataType>, _: Rc<RefCell<Env>>| {
+        debug!("Function - name: {:?} - Args: {:?}", "string?", vec);
+        if vec.len() != 1 {
+            return Err("string? function requires one argument only");
+        }
+        let value_option = vec.first();
+        if value_option.is_none() {
+            return Err("string? function unknown argument type");
+        }
+        match value_option.unwrap() {
+            &DataType::String(_) => Ok(Some(DataType::Bool(true))),
+            _ => Ok(Some(DataType::Bool(false)))
+        }
+    }))));
+
     map.insert("symbol?".to_string(), DataType::Proc(Function(Rc::new(|vec: Vec<DataType>, _: Rc<RefCell<Env>>| {
         debug!("Function - name: {:?} - Args: {:?}", "symbol?", vec);
         if vec.len() != 1 {
@@ -1151,6 +1175,7 @@ pub fn setup() -> HashMap<String, DataType> {
             _ => Ok(Some(DataType::Bool(false)))
         }
     }))));
+
     //    debug!("map start");
     //    for (i, key) in map.keys().enumerate() {
     //        debug!("{} => {}", i + 1, key);
@@ -1177,7 +1202,8 @@ fn datatype2str(value: &DataType) -> String {
         &DataType::Bool(b) => format!("{}", b),
         &DataType::Number(Number::Integer(i)) => format!("{}", i),
         &DataType::Number(Number::Float(f)) => format!("{}", f),
-        &DataType::Symbol(ref s) => format!("{}", s),
+        &DataType::Symbol(ref s) => format!("'{}", s),
+        &DataType::String(ref s) => format!("\"{}\"", s),
         &DataType::Proc(ref p) => format!("{:?}", p),
         &DataType::Lambda(ref p) => format!("{:?}", p),
         &DataType::List(ref v) => format!("'({})", v.iter()
