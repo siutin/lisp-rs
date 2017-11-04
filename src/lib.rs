@@ -7,6 +7,7 @@ use std::collections::HashMap;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::fmt;
+use std::f64;
 
 #[macro_export]
 macro_rules! tuplet {
@@ -168,6 +169,21 @@ impl Into<Number> for f64 {
 impl Into<Number> for i64 {
     fn into(self) -> Number {
         Number::Integer(self)
+    }
+}
+
+trait FloatIterExt {
+    fn float_min(&mut self) -> f64;
+    fn float_max(&mut self) -> f64;
+}
+
+impl<T> FloatIterExt for T where T: Iterator<Item=f64> {
+    fn float_max(&mut self) -> f64 {
+        self.fold(f64::NAN, f64::max)
+    }
+
+    fn float_min(&mut self) -> f64 {
+        self.fold(f64::NAN, f64::min)
     }
 }
 
@@ -789,7 +805,126 @@ pub fn setup() -> HashMap<String, DataType> {
 
     define_comparison!(le, "<=", |a,b| { a <= b });
     map.insert("<=".to_string(), le);
-    
+
+    map.insert("abs".to_string(), DataType::Proc(Function(Rc::new(|vec: Vec<DataType>, _: Rc<RefCell<Env>>| {
+        debug!("Function - name: {:?} - Args: {:?}", "abs", vec);
+        if vec.len() != 1 {
+            return Err("abs function requires one argument only");
+        }
+        let value_option = vec.first();
+        if value_option.is_none() {
+            return Err("abs function unknown argument type");
+        }
+        match value_option.unwrap() {
+            &DataType::Number(Number::Integer(i)) => Ok(Some(DataType::Number(Number::Integer(i.abs())))),
+            &DataType::Number(Number::Float(f)) => Ok(Some(DataType::Number(Number::Float(f.abs())))),
+            _ => Err("abs function requires an argument of type 'number'")
+        }
+    }))));
+
+    map.insert("append".to_string(), DataType::Proc(Function(Rc::new(|vec: Vec<DataType>, _: Rc<RefCell<Env>>| {
+        debug!("Function - name: {:?} - Args: {:?}", "append", vec);
+
+        if vec.is_empty() {
+            return Ok(Some(DataType::List(vec![])));
+        }
+
+        if vec.len() == 1 {
+            let value_option = vec.first();
+            return match value_option {
+                Some(&DataType::List(ref l)) => Ok(Some(DataType::List(l.clone()))),
+                Some(&DataType::Number(ref n)) => Ok(Some(DataType::Number(n.clone()))),
+                Some(&DataType::Bool(b)) => Ok(Some(DataType::Bool(b))),
+                Some(&DataType::Symbol(ref s)) => Ok(Some(DataType::Symbol(s.clone()))),
+                Some(&DataType::Proc(ref p)) => Ok(Some(DataType::Proc(p.clone()))),
+                Some(&DataType::Lambda(ref l)) => Ok(Some(DataType::Lambda(l.clone()))),
+                None => { return Err("append function unknown argument type"); }
+            };
+        }
+
+        //        let first_option = vec.first();
+        tuplet!((first_option,*rest_option) = vec);
+
+        match first_option {
+            Some(&DataType::List(ref l1)) => {
+                let mut list = l1.clone();
+
+                match rest_option {
+                    Some(rest) => {
+                        for item in rest.iter() {
+                            match item {
+                                &DataType::List(ref l2) => list.append(&mut l2.clone()),
+                                _ => unimplemented!()
+
+                                // TODO: requires pair structure for the following types
+                                //    &DataType::Number(n) => vec![list, DataType::Number(n)],
+                                //    &DataType::List(ref l) => vec![list, DataType::List(l.clone())],
+                                //    &DataType::Bool(b) => vec![list, DataType::Bool(b)],
+                                //    &DataType::Symbol(ref s) => vec![list, DataType::Symbol(s.clone())],
+                                //    &DataType::Proc(ref p) => vec![list, DataType::Proc(p.clone())],
+                                //    &DataType::Lambda(ref l) => vec![list, (DataType::Lambda(l.clone())]
+                            }
+                        }
+                    }
+                    None => {
+                        return Err("append function requires an argument of type 'list'");
+                    }
+                }
+
+                Ok(Some(DataType::List(list.clone())))
+            }
+            Some(_) => { return Err("append function wrong type of the first argument"); }
+            None => { return Err("append function unknown argument type"); }
+        }
+    }))));
+
+    map.insert("apply".to_string(), DataType::Proc(Function(Rc::new(|vec: Vec<DataType>, env: Rc<RefCell<Env>>| {
+        debug!("Function - name: {:?} - Args: {:?}", "apply", vec);
+
+        if vec.len() != 2 {
+            return Err("apply function requires two arguments");
+        }
+
+        tuplet!((s0,s1) = vec);
+        if let Some(&DataType::List(ref args)) = s1 {
+            match s0 {
+                Some(&DataType::Proc(ref f)) => {
+                    f.call(args.clone(), env.clone()).and_then(|r| {
+                        match r {
+                            Some(data) => Ok(Some(data)),
+                            None => Ok(None)
+                        }
+                    })
+                }
+                Some(&DataType::Lambda(ref p)) => {
+                    debug!("first elm symbol - lambda: {:?}", p);
+                    debug!("first elm symbol - procedure params: {:?}", p.params);
+                    let procedure_local = p.env.borrow_mut().local.clone();
+
+                    for (name_ref, value_ref) in p.params.iter().zip(args.into_iter()) {
+                        debug!("first elm symbol - procedure params - name: {:?} value: {:?}", name_ref, value_ref);
+                        if let (Some(&DataType::Symbol(ref name)), Some(value)) = (Some(name_ref), Some(value_ref)) {
+                            procedure_local.borrow_mut().insert(name.to_string(), value.clone());
+                        } else {
+                            unreachable!()
+                        }
+                    }
+
+                    let proc_env = Env {
+                        local: procedure_local,
+                        parent: p.env.borrow_mut().parent.clone()
+                    };
+
+                    debug!("proc_env: {:?}", proc_env);
+                    return eval(Some(p.body.clone()), Rc::new(RefCell::new(proc_env)));
+                }
+                Some(_) | None => Err("apply function unknown first argument type")
+            }
+        } else {
+            return Err("apply function requires two arguments");
+        }
+    }))));
+
     // pre-defined commands
     map.insert("begin".to_string(), DataType::Proc(
         Function(
@@ -799,11 +934,6 @@ pub fn setup() -> HashMap<String, DataType> {
             })
         )
     ));
-
-    map.insert("list".to_string(), DataType::Proc(Function(Rc::new(|vec: Vec<DataType>, _: Rc<RefCell<Env>>| {
-        debug!("Function - name: {:?} - Args: {:?}", "list", vec);
-        Ok(Some(DataType::List(vec)))
-    }))));
 
     map.insert("car".to_string(), DataType::Proc(Function(Rc::new(|vec: Vec<DataType>, _: Rc<RefCell<Env>>| {
         debug!("Function - name: {:?} - Args: {:?}", "car", vec);
@@ -848,6 +978,124 @@ pub fn setup() -> HashMap<String, DataType> {
         }
     }))));
 
+    map.insert("length".to_string(), DataType::Proc(Function(Rc::new(|vec: Vec<DataType>, _: Rc<RefCell<Env>>| {
+        debug!("Function - name: {:?} - Args: {:?}", "length", vec);
+        if vec.len() != 1 {
+            return Err("length function requires one argument only");
+        }
+        let value_option = vec.first();
+        if value_option.is_none() {
+            return Err("length function unknown argument type");
+        }
+        match value_option.unwrap() {
+            &DataType::List(ref vec) => Ok(Some(DataType::Number(Number::Integer(vec.len() as i64)))),
+            _ => Err("length function requires an argument of type 'list'")
+        }
+    }))));
+
+    map.insert("list".to_string(), DataType::Proc(Function(Rc::new(|vec: Vec<DataType>, _: Rc<RefCell<Env>>| {
+        debug!("Function - name: {:?} - Args: {:?}", "list", vec);
+        Ok(Some(DataType::List(vec)))
+    }))));
+
+    map.insert("list?".to_string(), DataType::Proc(Function(Rc::new(|vec: Vec<DataType>, _: Rc<RefCell<Env>>| {
+        debug!("Function - name: {:?} - Args: {:?}", "list?", vec);
+        if vec.len() != 1 {
+            return Err("list? function requires one argument only");
+        }
+        let value_option = vec.first();
+        if value_option.is_none() {
+            return Err("list? function unknown argument type");
+        }
+        match value_option.unwrap() {
+            &DataType::List(_) => Ok(Some(DataType::Bool(true))),
+            _ => Ok(Some(DataType::Bool(false)))
+        }
+    }))));
+
+    map.insert("max".to_string(), DataType::Proc(Function(Rc::new(|vec: Vec<DataType>, _: Rc<RefCell<Env>>| {
+        debug!("Function - name: {:?} - Args: {:?}", "max", vec);
+        let is_numbers = vec.iter().all(|&ref x| if let &DataType::Number(_) = x { true } else { false });
+        if !is_numbers {
+            return Err("wrong argument datatype");
+        }
+        let is_integers = vec.iter().all(|&ref x| if let &DataType::Number(Number::Integer(_)) = x { true } else { false });
+        let numbers = vec.iter().filter_map(|&ref x| { if let &DataType::Number(ref y) = x { Some(y.clone()) } else { None } });
+
+        if is_integers {
+            let max_result = numbers.map(|x| {
+                let y: i64 = x.clone().into();
+                y
+            }).max();
+            match max_result {
+                Some(data) => Ok(Some(DataType::Number(data.into()))),
+                None => Ok(None)
+            }
+        } else {
+            let data = numbers.map(|x| {
+                let y: f64 = x.clone().into();
+                y
+            }).float_max();
+            Ok(Some(DataType::Number(data.into())))
+        }
+    }))));
+
+    map.insert("min".to_string(), DataType::Proc(Function(Rc::new(|vec: Vec<DataType>, _: Rc<RefCell<Env>>| {
+        debug!("Function - name: {:?} - Args: {:?}", "min", vec);
+        let is_numbers = vec.iter().all(|&ref x| if let &DataType::Number(_) = x { true } else { false });
+        if !is_numbers {
+            return Err("wrong argument datatype");
+        }
+        let is_integers = vec.iter().all(|&ref x| if let &DataType::Number(Number::Integer(_)) = x { true } else { false });
+        let numbers = vec.iter().filter_map(|&ref x| { if let &DataType::Number(ref y) = x { Some(y.clone()) } else { None } });
+
+        if is_integers {
+            let max_result = numbers.map(|x| {
+                let y: i64 = x.clone().into();
+                y
+            }).min();
+            match max_result {
+                Some(data) => Ok(Some(DataType::Number(data.into()))),
+                None => Ok(None)
+            }
+        } else {
+            let data = numbers.map(|x| {
+                let y: f64 = x.clone().into();
+                y
+            }).float_min();
+            Ok(Some(DataType::Number(data.into())))
+        }
+    }))));
+
+    map.insert("not".to_string(), DataType::Proc(Function(Rc::new(|vec: Vec<DataType>, _: Rc<RefCell<Env>>| {
+        debug!("Function - name: {:?} - Args: {:?}", "not", vec);
+        if vec.len() != 1 {
+            return Err("not function requires one argument only");
+        }
+        let value_option = vec.first();
+        if value_option.is_none() {
+            return Err("not function unknown argument type");
+        }
+        match value_option.unwrap() {
+            &DataType::Bool(b) => Ok(Some(DataType::Bool(!b))),
+            _ => Err("not function requires an argument of type 'boolean'")
+        }
+    }))));
+
+    map.insert("number?".to_string(), DataType::Proc(Function(Rc::new(|vec: Vec<DataType>, _: Rc<RefCell<Env>>| {
+        debug!("Function - name: {:?} - Args: {:?}", "number?", vec);
+        if vec.len() != 1 {
+            return Err("number? function requires one argument only");
+        }
+        let value_option = vec.first();
+        if value_option.is_none() {
+            return Err("number? function unknown argument type");
+        }
+        match value_option.unwrap() {
+            &DataType::Number(_) => Ok(Some(DataType::Bool(true))),
+            _ => Ok(Some(DataType::Bool(false)))
+        }
+    }))));
     map.insert("print".to_string(), DataType::Proc(
         Function(Rc::new(|vec: Vec<DataType>, _: Rc<RefCell<Env>>| {
             debug!("Function - name: {:?} - Args: {:?}", "print", vec);
@@ -864,6 +1112,36 @@ pub fn setup() -> HashMap<String, DataType> {
             Ok(None)
         }))));
 
+    map.insert("procedure?".to_string(), DataType::Proc(Function(Rc::new(|vec: Vec<DataType>, _: Rc<RefCell<Env>>| {
+        debug!("Function - name: {:?} - Args: {:?}", "procedure?", vec);
+        if vec.len() != 1 {
+            return Err("procedure? function requires one argument only");
+        }
+        let value_option = vec.first();
+        if value_option.is_none() {
+            return Err("procedure? function unknown argument type");
+        }
+        match value_option.unwrap() {
+            &DataType::Proc(_) => Ok(Some(DataType::Bool(true))),
+            &DataType::Lambda(_) => Ok(Some(DataType::Bool(true))),
+            _ => Ok(Some(DataType::Bool(false)))
+        }
+    }))));
+
+    map.insert("symbol?".to_string(), DataType::Proc(Function(Rc::new(|vec: Vec<DataType>, _: Rc<RefCell<Env>>| {
+        debug!("Function - name: {:?} - Args: {:?}", "symbol?", vec);
+        if vec.len() != 1 {
+            return Err("symbol? function requires one argument only");
+        }
+        let value_option = vec.first();
+        if value_option.is_none() {
+            return Err("symbol? function unknown argument type");
+        }
+        match value_option.unwrap() {
+            &DataType::Symbol(_) => Ok(Some(DataType::Bool(true))),
+            _ => Ok(Some(DataType::Bool(false)))
+        }
+    }))));
     //    debug!("map start");
     //    for (i, key) in map.keys().enumerate() {
     //        debug!("{} => {}", i + 1, key);
