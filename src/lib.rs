@@ -635,67 +635,7 @@ pub fn setup() -> HashMap<String, DataType> {
     let mut map = HashMap::new();
     map.insert("pi".to_string(), DataType::Number(Number::Float(std::f64::consts::PI)));
 
-    // pre-defined commands
-    map.insert("begin".to_string(), DataType::Proc(
-        Function(
-            Rc::new(|mut vec: Vec<DataType>, _: Rc<RefCell<Env>>| {
-                debug!("Function - name: {:?} - Args: {:?}", "begin", vec);
-                Ok(vec.pop().clone())
-            })
-        )
-    ));
-
-    map.insert("print".to_string(), DataType::Proc(
-        Function(Rc::new(|vec: Vec<DataType>, _:  Rc<RefCell<Env>>| {
-            debug!("Function - name: {:?} - Args: {:?}", "print", vec);
-            if vec.len() != 1 {
-                return Err("print function requires one argument only");
-            }
-
-            let value_option = vec.first();
-            if value_option.is_none() {
-                return Err("unknown argument type");
-            }
-            println!("{}", datatype2str(value_option.unwrap()));
-            //        print_fn(value_option.unwrap());
-            Ok(None)
-        }))));
-
-    map.insert("*".to_string(), DataType::Proc(
-        Function(Rc::new(|vec: Vec<DataType>, _:  Rc<RefCell<Env>>| {
-            debug!("Function - name: {:?} - Args: {:?}", "*", vec);
-            let is_numbers = vec.iter().all(|&ref x| if let &DataType::Number(_) = x { true } else { false });
-            if !is_numbers {
-                return Err("wrong argument datatype");
-            }
-
-            let desc = vec.iter().map(|&ref x|
-                match x {
-                    &DataType::Number(Number::Integer(i)) => i.to_string(),
-                    &DataType::Number(Number::Float(f)) => f.to_string(),
-                    _ => panic!("Something went wrong"),
-                }
-            ).collect::<Vec<String>>().join(" x ");
-            debug!("Description: {}", desc);
-
-            let is_integers = vec.iter().all(|&ref x| if let &DataType::Number(Number::Integer(_)) = x { true } else { false });
-            let numbers = vec.iter().filter_map(|&ref x| { if let &DataType::Number(ref y) = x { Some(y.clone()) } else { None } });
-            if is_integers {
-                let data: i64 = numbers.map(|x| {
-                    let y: i64 = x.clone().into();
-                    y
-                }).product();
-                Ok(Some(DataType::Number(data.into())))
-            } else {
-                let data: f64 = numbers.map(|x| {
-                    let y: f64 = x.clone().into();
-                    y
-                }).product();
-                Ok(Some(DataType::Number(data.into())))
-            }
-        }))));
-
-    map.insert("+".to_string(), DataType::Proc(Function(Rc::new(|vec: Vec<DataType>, _:  Rc<RefCell<Env>>| {
+    map.insert("+".to_string(), DataType::Proc(Function(Rc::new(|vec: Vec<DataType>, _: Rc<RefCell<Env>>| {
         debug!("Function - name: {:?} - Args: {:?}", "+", vec);
         let is_numbers = vec.iter().all(|&ref x| if let &DataType::Number(_) = x { true } else { false });
         if !is_numbers {
@@ -728,7 +668,7 @@ pub fn setup() -> HashMap<String, DataType> {
         }
     }))));
 
-    map.insert("-".to_string(), DataType::Proc(Function(Rc::new(|vec: Vec<DataType>, _:  Rc<RefCell<Env>>| {
+    map.insert("-".to_string(), DataType::Proc(Function(Rc::new(|vec: Vec<DataType>, _: Rc<RefCell<Env>>| {
         debug!("Function - name: {:?} - Args: {:?}", "+", vec);
         let is_numbers = vec.iter().all(|&ref x| if let &DataType::Number(_) = x { true } else { false });
 
@@ -772,7 +712,41 @@ pub fn setup() -> HashMap<String, DataType> {
         }
     }))));
 
-    map.insert("/".to_string(), DataType::Proc(Function(Rc::new(|vec: Vec<DataType>, _:  Rc<RefCell<Env>>| {
+    map.insert("*".to_string(), DataType::Proc(
+        Function(Rc::new(|vec: Vec<DataType>, _: Rc<RefCell<Env>>| {
+            debug!("Function - name: {:?} - Args: {:?}", "*", vec);
+            let is_numbers = vec.iter().all(|&ref x| if let &DataType::Number(_) = x { true } else { false });
+            if !is_numbers {
+                return Err("wrong argument datatype");
+            }
+
+            let desc = vec.iter().map(|&ref x|
+                match x {
+                    &DataType::Number(Number::Integer(i)) => i.to_string(),
+                    &DataType::Number(Number::Float(f)) => f.to_string(),
+                    _ => panic!("Something went wrong"),
+                }
+            ).collect::<Vec<String>>().join(" x ");
+            debug!("Description: {}", desc);
+
+            let is_integers = vec.iter().all(|&ref x| if let &DataType::Number(Number::Integer(_)) = x { true } else { false });
+            let numbers = vec.iter().filter_map(|&ref x| { if let &DataType::Number(ref y) = x { Some(y.clone()) } else { None } });
+            if is_integers {
+                let data: i64 = numbers.map(|x| {
+                    let y: i64 = x.clone().into();
+                    y
+                }).product();
+                Ok(Some(DataType::Number(data.into())))
+            } else {
+                let data: f64 = numbers.map(|x| {
+                    let y: f64 = x.clone().into();
+                    y
+                }).product();
+                Ok(Some(DataType::Number(data.into())))
+            }
+        }))));
+
+    map.insert("/".to_string(), DataType::Proc(Function(Rc::new(|vec: Vec<DataType>, _: Rc<RefCell<Env>>| {
         debug!("Function - name: {:?} - Args: {:?}", "/", vec);
         let is_numbers = vec.iter().all(|&ref x| if let &DataType::Number(_) = x { true } else { false });
 
@@ -801,12 +775,37 @@ pub fn setup() -> HashMap<String, DataType> {
         Ok(Some(DataType::Number(Number::Float(value))))
     }))));
 
-    map.insert("list".to_string(), DataType::Proc(Function(Rc::new(|vec: Vec<DataType>, _:  Rc<RefCell<Env>>| {
+    define_comparison!(gt, ">", |a,b| { a > b });
+    map.insert(">".to_string(), gt);
+
+    define_comparison!(lt, "<", |a,b| { a < b });
+    map.insert("<".to_string(), lt);
+
+    define_comparison!(eq, "=", |a,b| { a == b });
+    map.insert("=".to_string(), eq);
+
+    define_comparison!(ge, ">=", |a,b| { a >= b });
+    map.insert(">=".to_string(), ge);
+
+    define_comparison!(le, "<=", |a,b| { a <= b });
+    map.insert("<=".to_string(), le);
+    
+    // pre-defined commands
+    map.insert("begin".to_string(), DataType::Proc(
+        Function(
+            Rc::new(|mut vec: Vec<DataType>, _: Rc<RefCell<Env>>| {
+                debug!("Function - name: {:?} - Args: {:?}", "begin", vec);
+                Ok(vec.pop().clone())
+            })
+        )
+    ));
+
+    map.insert("list".to_string(), DataType::Proc(Function(Rc::new(|vec: Vec<DataType>, _: Rc<RefCell<Env>>| {
         debug!("Function - name: {:?} - Args: {:?}", "list", vec);
         Ok(Some(DataType::List(vec)))
     }))));
 
-    map.insert("car".to_string(), DataType::Proc(Function( Rc::new(|vec: Vec<DataType>, _:  Rc<RefCell<Env>>| {
+    map.insert("car".to_string(), DataType::Proc(Function(Rc::new(|vec: Vec<DataType>, _: Rc<RefCell<Env>>| {
         debug!("Function - name: {:?} - Args: {:?}", "car", vec);
         if vec.len() != 1 {
             return Err("car function requires one argument only");
@@ -828,7 +827,7 @@ pub fn setup() -> HashMap<String, DataType> {
         }
     }))));
 
-    map.insert("cdr".to_string(), DataType::Proc(Function(Rc::new(|vec: Vec<DataType>, _:  Rc<RefCell<Env>>| {
+    map.insert("cdr".to_string(), DataType::Proc(Function(Rc::new(|vec: Vec<DataType>, _: Rc<RefCell<Env>>| {
         debug!("Function - name: {:?} - Args: {:?}", "cdr", vec);
         if vec.len() != 1 {
             return Err("cdr function requires one argument only");
@@ -849,20 +848,21 @@ pub fn setup() -> HashMap<String, DataType> {
         }
     }))));
 
-    define_comparison!(gt, ">", |a,b| { a > b });
-    map.insert(">".to_string(), gt);
+    map.insert("print".to_string(), DataType::Proc(
+        Function(Rc::new(|vec: Vec<DataType>, _: Rc<RefCell<Env>>| {
+            debug!("Function - name: {:?} - Args: {:?}", "print", vec);
+            if vec.len() != 1 {
+                return Err("print function requires one argument only");
+            }
 
-    define_comparison!(lt, "<", |a,b| { a < b });
-    map.insert("<".to_string(), lt);
-
-    define_comparison!(eq, "=", |a,b| { a == b });
-    map.insert("=".to_string(), eq);
-
-    define_comparison!(ge, ">=", |a,b| { a >= b });
-    map.insert(">=".to_string(), ge);
-
-    define_comparison!(le, "<=", |a,b| { a <= b });
-    map.insert("<=".to_string(), le);
+            let value_option = vec.first();
+            if value_option.is_none() {
+                return Err("unknown argument type");
+            }
+            println!("{}", datatype2str(value_option.unwrap()));
+            //        print_fn(value_option.unwrap());
+            Ok(None)
+        }))));
 
     //    debug!("map start");
     //    for (i, key) in map.keys().enumerate() {
