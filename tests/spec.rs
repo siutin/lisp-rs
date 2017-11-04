@@ -112,6 +112,163 @@ fn stmt12() {
     assert_eq!(Ok(Some(DataType::Number(Number::Integer(160)))), test_result.value);
 }
 
+#[test]
+fn stmt13() {
+    let test_result = run("(abs -42)");
+    assert_eq!(Ok(Some(DataType::Number(Number::Integer(42)))), test_result.value);
+}
+
+#[test]
+fn stmt14() {
+    let test_result = run("(append (list 1 2 3) (list 4 5))");
+    assert_eq!(Ok(Some(DataType::List(vec![
+        DataType::Number(Number::Integer(1)),
+        DataType::Number(Number::Integer(2)),
+        DataType::Number(Number::Integer(3)),
+        DataType::Number(Number::Integer(4)),
+        DataType::Number(Number::Integer(5))
+    ]))), test_result.value);
+}
+
+#[test]
+fn stmt15() {
+    {
+        let test_result = run("(apply * (list 7 9))");
+        assert_eq!(Ok(Some(DataType::Number(Number::Integer(63)))), test_result.value);
+    }
+    {
+        let test_result = run("(apply (lambda (x y)(* x y)) (list 7 9))");
+        assert_eq!(Ok(Some(DataType::Number(Number::Integer(63)))), test_result.value);
+    }
+}
+
+#[test]
+fn stmt16() {
+    let test_result = run("(length (list 7 9 4 0 3))");
+    assert_eq!(Ok(Some(DataType::Number(Number::Integer(5)))), test_result.value);
+}
+
+#[test]
+fn stmt17() {
+    {
+        let test_result = run("(list? (list 7 9 4 0 3))");
+        assert_eq!(Ok(Some(DataType::Bool(true))), test_result.value);
+    }
+    {
+        let test_result = run("(list? 1)");
+        assert_eq!(Ok(Some(DataType::Bool(false))), test_result.value);
+    }
+    {
+        let test_result = run("(list? 5.5)");
+        assert_eq!(Ok(Some(DataType::Bool(false))), test_result.value);
+    }
+    {
+        let test_result = run("(list? \"hello\")");
+        assert_eq!(Ok(Some(DataType::Bool(false))), test_result.value);
+    }
+    {
+        let test_result = run("(list? +)");
+        assert_eq!(Ok(Some(DataType::Bool(false))), test_result.value);
+    }
+    {
+        let test_result = run("(symbol? (labmda (x y) (+ x y)))");
+        assert_eq!(Ok(Some(DataType::Bool(false))), test_result.value);
+    }
+}
+
+#[test]
+fn stmt18() {
+    {
+        let test_result = run("(number? (list 7 9 4 0 3))");
+        assert_eq!(Ok(Some(DataType::Bool(false))), test_result.value);
+    }
+    {
+        let test_result = run("(number? 1)");
+        assert_eq!(Ok(Some(DataType::Bool(true))), test_result.value);
+    }
+    {
+        let test_result = run("(number? 5.5)");
+        assert_eq!(Ok(Some(DataType::Bool(true))), test_result.value);
+    }
+    {
+        let test_result = run("(number? \"hello\")");
+        assert_eq!(Ok(Some(DataType::Bool(false))), test_result.value);
+    }
+    {
+        let test_result = run("(number? +)");
+        assert_eq!(Ok(Some(DataType::Bool(false))), test_result.value);
+    }
+    {
+        let test_result = run("(symbol? (labmda (x y) (+ x y)))");
+        assert_eq!(Ok(Some(DataType::Bool(false))), test_result.value);
+    }
+}
+
+fn stmt19() {
+    {
+        let test_result = run("(procedure? (list 7 9 4 0 3))");
+        assert_eq!(Ok(Some(DataType::Bool(false))), test_result.value);
+    }
+    {
+        let test_result = run("(procedure? 1)");
+        assert_eq!(Ok(Some(DataType::Bool(false))), test_result.value);
+    }
+    {
+        let test_result = run("(procedure? 5.5)");
+        assert_eq!(Ok(Some(DataType::Bool(false))), test_result.value);
+    }
+    {
+        let test_result = run("(procedure? \"hello\")");
+        assert_eq!(Ok(Some(DataType::Bool(false))), test_result.value);
+    }
+    {
+        let test_result = run("(procedure? +)");
+        assert_eq!(Ok(Some(DataType::Bool(true))), test_result.value);
+    }
+    {
+        let test_result = run("(procedure? (labmda (x y) (+ x y)))");
+        assert_eq!(Ok(Some(DataType::Bool(true))), test_result.value);
+    }
+}
+
+fn stmt20() {
+    {
+        let test_result = run("(symbol? (list 7 9 4 0 3))");
+        assert_eq!(Ok(Some(DataType::Bool(false))), test_result.value);
+    }
+    {
+        let test_result = run("(symbol? 1)");
+        assert_eq!(Ok(Some(DataType::Bool(false))), test_result.value);
+    }
+    {
+        let test_result = run("(symbol? 5.5)");
+        assert_eq!(Ok(Some(DataType::Bool(false))), test_result.value);
+    }
+    {
+        let test_result = run("(symbol? \"hello\")");
+        assert_eq!(Ok(Some(DataType::Bool(true))), test_result.value);
+    }
+    {
+        let test_result = run("(symbol? +)");
+        assert_eq!(Ok(Some(DataType::Bool(false))), test_result.value);
+    }
+    {
+        let test_result = run("(symbol? (labmda (x y) (+ x y)))");
+        assert_eq!(Ok(Some(DataType::Bool(false))), test_result.value);
+    }
+}
+
+fn stmt21() {
+    {
+        let test_result = run("(max 7 9 4 0 3)");
+        assert_eq!(Ok(Some(DataType::Number(Number::Integer(9)))), test_result.value);
+    }
+    {
+        let test_result = run("(min 7 9 4 0 3)");
+        assert_eq!(Ok(Some(DataType::Number(Number::Integer(0)))), test_result.value);
+    }
+}
+
 #[derive(Debug)]
 struct TestResult {
     value: Result<Option<DataType>, &'static str>,
