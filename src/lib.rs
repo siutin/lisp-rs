@@ -382,6 +382,20 @@ pub fn eval(ast_option: Option<AST>, env: Rc<RefCell<Env>>) -> Result<Option<Dat
 
             if let Some(&AST::Symbol(ref s0)) = s0 {
                 match s0.as_str() {
+                    "quote" => {
+                        debug!("quote-expression");
+                        tuplet!((s0_option,s1_option,*rest_option) = list);
+
+                        match s1_option {
+                            Some(ref ast) => {
+                                match ast2datatype(ast) {
+                                    Ok(data) => Ok(Some(data)),
+                                    Err(e) => { return Err(e); }
+                                }
+                            }
+                            None => { return Err("wrong number of parts"); }
+                        }
+                    }
                     "if" => {
                         debug!("if-expression");
                         if let (Some(&ref cond), Some(&ref conseq), Some(&ref alt)) = (s1, s2, s3) {
@@ -1173,5 +1187,38 @@ fn datatype2str(value: &DataType) -> String {
         &DataType::Lambda(ref p) => format!("{:?}", p),
         &DataType::List(ref v) => format!("'({})", v.iter()
             .map(|d| datatype2str(d)).collect::<Vec<_>>().join(" "))
+    }
+}
+
+fn ast2datatype(value: &AST) -> Result<DataType, &'static str> {
+    match value {
+        &AST::Children(ref v) => {
+            let children_result: Result<Vec<_>, _> = v.iter().map(|ast| ast2datatype(&ast)).collect();
+            if let Result::Err(ref e) = children_result { return Err(e); }
+
+            let children = children_result.unwrap().into_iter().collect::<Vec<DataType>>();
+            Ok(DataType::List(children))
+        }
+        &AST::Symbol(ref s) => {
+            if s.starts_with("#") {
+                if s.len() != 2 {
+                    return Err("syntax error");
+                }
+                let c_option = s.chars().nth(1);
+                if let Some('t') = c_option {
+                    Ok(DataType::Bool(true))
+                } else if let Some('f') = c_option {
+                    Ok(DataType::Bool(false))
+                } else {
+                    Err("syntax error")
+                }
+            } else if s.starts_with("\"") && s.ends_with("\"") {
+                Ok(DataType::Symbol((&s[1..s.len() - 1]).to_string()))
+            } else {
+                Ok(DataType::Symbol(s.clone()))
+            }
+        }
+        &AST::Integer(i) => Ok(DataType::Number(Number::Integer(i))),
+        &AST::Float(f) => Ok(DataType::Number(Number::Float(f)))
     }
 }
