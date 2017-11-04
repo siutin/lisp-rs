@@ -119,7 +119,7 @@ fn state_test() {
     assert_eq!(Ok(None), test_result1.value);
 
     let test_result2 = run_with_env("s", env_ref.clone());
-    assert_eq!(Ok(Some(DataType::Symbol("hello world".to_string()))), test_result2.value);
+    assert_eq!(Ok(Some(DataType::String("hello world".to_string()))), test_result2.value);
 }
 
 mod op {
@@ -257,6 +257,10 @@ mod std_function {
                 assert_eq!(Ok(Some(DataType::Bool(false))), test_result.value);
             }
             {
+                let test_result = run("(list? 'hello)");
+                assert_eq!(Ok(Some(DataType::Bool(false))), test_result.value);
+            }
+            {
                 let test_result = run("(list? +)");
                 assert_eq!(Ok(Some(DataType::Bool(false))), test_result.value);
             }
@@ -282,6 +286,10 @@ mod std_function {
             }
             {
                 let test_result = run("(number? \"hello\")");
+                assert_eq!(Ok(Some(DataType::Bool(false))), test_result.value);
+            }
+            {
+                let test_result = run("(number? 'hello)");
                 assert_eq!(Ok(Some(DataType::Bool(false))), test_result.value);
             }
             {
@@ -313,12 +321,48 @@ mod std_function {
                 assert_eq!(Ok(Some(DataType::Bool(false))), test_result.value);
             }
             {
+                let test_result = run("(procedure? 'hello)");
+                assert_eq!(Ok(Some(DataType::Bool(false))), test_result.value);
+            }
+            {
                 let test_result = run("(procedure? +)");
                 assert_eq!(Ok(Some(DataType::Bool(true))), test_result.value);
             }
             {
                 let test_result = run("(procedure? (lambda (x y) (+ x y)))");
                 assert_eq!(Ok(Some(DataType::Bool(true))), test_result.value);
+            }
+        }
+
+        #[test]
+        fn string_q() {
+            {
+                let test_result = run("(string? (list 7 9 4 0 3))");
+                assert_eq!(Ok(Some(DataType::Bool(false))), test_result.value);
+            }
+            {
+                let test_result = run("(string? 1)");
+                assert_eq!(Ok(Some(DataType::Bool(false))), test_result.value);
+            }
+            {
+                let test_result = run("(string? 5.5)");
+                assert_eq!(Ok(Some(DataType::Bool(false))), test_result.value);
+            }
+            {
+                let test_result = run("(string? \"hello\")");
+                assert_eq!(Ok(Some(DataType::Bool(true))), test_result.value);
+            }
+            {
+                let test_result = run("(string? 'hello)");
+                assert_eq!(Ok(Some(DataType::Bool(false))), test_result.value);
+            }
+            {
+                let test_result = run("(string? +)");
+                assert_eq!(Ok(Some(DataType::Bool(false))), test_result.value);
+            }
+            {
+                let test_result = run("(string? (lambda (x y) (+ x y)))");
+                assert_eq!(Ok(Some(DataType::Bool(false))), test_result.value);
             }
         }
 
@@ -338,6 +382,10 @@ mod std_function {
             }
             {
                 let test_result = run("(symbol? \"hello\")");
+                assert_eq!(Ok(Some(DataType::Bool(false))), test_result.value);
+            }
+            {
+                let test_result = run("(symbol? 'hello)");
                 assert_eq!(Ok(Some(DataType::Bool(true))), test_result.value);
             }
             {
