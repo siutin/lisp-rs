@@ -14,6 +14,34 @@ fn if_expression_test() {
 }
 
 #[test]
+fn quote_expression_test() {
+    {
+        let test_result = run("(quote apple)");
+        assert_eq!(Ok(Some(DataType::Symbol("apple".to_string()))), test_result.value);
+    }
+    {
+        let test_result = run("(quote \"orange\")");
+        assert_eq!(Ok(Some(DataType::Symbol("orange".to_string()))), test_result.value);
+    }
+    {
+        let test_result = run("(quote 42)");
+        assert_eq!(Ok(Some(DataType::Number(Number::Integer(42)))), test_result.value);
+    }
+    {
+        let test_result = run("(quote #t)");
+        assert_eq!(Ok(Some(DataType::Bool(true))), test_result.value);
+    }
+    {
+        let test_result = run("(quote (define x 1))");
+        assert_eq!(Ok(Some(DataType::List(vec![
+            DataType::Symbol("define".to_string()),
+            DataType::Symbol("x".to_string()),
+            DataType::Number(Number::Integer(1)),
+        ]))), test_result.value);
+    }
+}
+
+#[test]
 fn variable_retrieving_test() {
     let test_result = run("(define r 10)(* pi (* r r))");
     assert_eq!(Ok(Some(DataType::Number(Number::Float(314.1592653589793)))), test_result.value);
