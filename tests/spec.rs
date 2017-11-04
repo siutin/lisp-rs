@@ -8,6 +8,12 @@ use std::rc::Rc;
 use scheme_rs::*;
 
 #[test]
+fn if_expression_test() {
+    let test_result = run("(if (> (* 11 11) 120) #t #f)");
+    assert_eq!(Ok(Some(DataType::Bool(true))), test_result.value);
+}
+
+#[test]
 fn variable_retrieving_test() {
     let test_result = run("(define r 10)(* pi (* r r))");
     assert_eq!(Ok(Some(DataType::Number(Number::Float(314.1592653589793)))), test_result.value);
@@ -20,12 +26,6 @@ fn lambda_retrieving_test() {
     (circle-area 3)
     "#);
     assert_eq!(Ok(Some(DataType::Number(Number::Float(28.274333882308138)))), test_result.value);
-}
-
-#[test]
-fn if_expression_test() {
-    let test_result = run("(if (> (* 11 11) 120) #t #f)");
-    assert_eq!(Ok(Some(DataType::Bool(true))), test_result.value);
 }
 
 #[test]
