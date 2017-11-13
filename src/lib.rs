@@ -582,13 +582,11 @@ pub fn eval(ast_option: Option<AST>, env: Rc<RefCell<Env>>) -> Result<Option<Dat
                             }
                         }
                         Ok(Some(DataType::Lambda(ref mut p))) => {
-                            debug!("first elm lambda - lambda: {:?}", p);
-                            match rest_option {
+                            debug!("first elm lambda - lambda: {:?} - procedure params: {:?}", p, p.params);
+                            let proc_env = match rest_option {
                                 Some(rest) => {
                                     match prepare_arguments(rest, env.clone()) {
                                         Ok(args) => {
-                                            debug!("first elm lambda - procedure params: {:?}", p.params);
-
                                             let p_env_borrow_mut = p.env.borrow_mut();
                                             for (name_ref, value_ref) in p.params.iter().zip(args.into_iter()) {
                                                 debug!("first elm lambda - procedure params - name: {:?} value: {:?}", name_ref, value_ref);
@@ -598,22 +596,24 @@ pub fn eval(ast_option: Option<AST>, env: Rc<RefCell<Env>>) -> Result<Option<Dat
                                                     unreachable!()
                                                 }
                                             }
-
-                                            let proc_env = Env {
+                                            Env {
                                                 local: p_env_borrow_mut.local.clone(),
                                                 parent: p_env_borrow_mut.parent.clone()
-                                            };
-
-                                            debug!("proc_env: {:?}", proc_env);
-                                            return eval(Some(p.body.clone()), Rc::new(RefCell::new(proc_env)));
+                                            }
                                         }
                                         Err(e) => return Err(e)
                                     }
                                 }
                                 None => {
-                                    unimplemented!()
+                                    let p_env_borrow_mut = p.env.borrow_mut();
+                                    Env {
+                                        local: p_env_borrow_mut.local.clone(),
+                                        parent: p_env_borrow_mut.parent.clone()
+                                    }
                                 }
-                            }
+                            };
+                            debug!("proc_env: {:?}", proc_env);
+                            return eval(Some(p.body.clone()), Rc::new(RefCell::new(proc_env)));
                         }
                         Ok(_) => { return Err("unsupported data type on first element"); }
                         Err(e) => { return Err(e); }
