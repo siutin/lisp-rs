@@ -578,7 +578,7 @@ pub fn eval(ast_option: Option<AST>, env: Rc<RefCell<Env>>) -> Result<Option<Dat
                             debug!("first elm function - function: {:?}", f);
                             match rest_option {
                                 Some(rest) => execute(f, rest, env),
-                                None => unimplemented!()
+                                None => execute(f, &vec![], env)
                             }
                         }
                         Ok(Some(DataType::Lambda(ref mut p))) => {
