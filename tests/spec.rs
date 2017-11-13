@@ -110,6 +110,23 @@ fn complex_lambda_test() {
 }
 
 #[test]
+fn tricky_test1 () {
+
+    // Testing the case that the 1st element is a children and it returns a function/lambda after an evaluation
+    // and then it would be evaluated again but without arguments
+
+    // function
+    let test_result1 = run("((begin +))");
+    assert_eq!(Ok(Some(DataType::Number(Number::Integer(0)))), test_result1.value);
+
+    // lambda
+    let env_ref = default_env();
+    run_with_env("(define add (lambda () (+)))", env_ref.clone());
+    let test_result0 = run_with_env("((begin add))", env_ref.clone());
+    assert_eq!(Ok(Some(DataType::Number(Number::Integer(0)))), test_result0.value);
+}
+
+#[test]
 fn state_test() {
     let env_ref = default_env();
     let test_result0 = run_with_env("s", env_ref.clone());
