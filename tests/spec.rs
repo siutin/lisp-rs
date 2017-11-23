@@ -189,6 +189,18 @@ mod std_function {
     }
 
     #[test]
+    fn cons() {
+        assert_eq!(Ok(Some(DataType::Pair(
+            (
+                Box::new(DataType::Number(Number::Integer(1))),
+                Box::new(DataType::Number(Number::Integer(2)))
+            )
+        ))), run("(cons 1 2)").value);
+        assert_eq!(Err("cons function requires two argument only"), run("(cons 'a)").value);
+
+    }
+
+    #[test]
     fn abs() {
         let test_result = run("(abs -42)");
         assert_eq!(Ok(Some(DataType::Number(Number::Integer(42)))), test_result.value);
