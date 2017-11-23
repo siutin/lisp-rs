@@ -1117,6 +1117,21 @@ pub fn setup() -> HashMap<String, DataType> {
             _ => Ok(Some(DataType::Bool(false)))
         }
     }))));
+    map.insert("pair?".to_string(), DataType::Proc(Function(Rc::new(|vec: Vec<DataType>, _: Rc<RefCell<Env>>| {
+        debug!("Function - name: {:?} - Args: {:?}", "pair?", vec);
+        if vec.len() != 1 {
+            return Err("pair? function requires one argument only");
+        }
+        let value_option = vec.first();
+        if value_option.is_none() {
+            return Err("pair? function unknown argument type");
+        }
+        match value_option.unwrap() {
+            &DataType::Pair(_) => Ok(Some(DataType::Bool(true))),
+            _ => Ok(Some(DataType::Bool(false)))
+        }
+    }))));
+
     map.insert("print".to_string(), DataType::Proc(
         Function(Rc::new(|vec: Vec<DataType>, _: Rc<RefCell<Env>>| {
             debug!("Function - name: {:?} - Args: {:?}", "print", vec);
