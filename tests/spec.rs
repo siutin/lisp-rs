@@ -233,14 +233,76 @@ mod std_function {
 
     #[test]
     fn append() {
-        let test_result = run("(append (list 1 2 3) (list 4 5))");
         assert_eq!(Ok(Some(DataType::List(vec![
             DataType::Number(Number::Integer(1)),
             DataType::Number(Number::Integer(2)),
             DataType::Number(Number::Integer(3)),
             DataType::Number(Number::Integer(4)),
             DataType::Number(Number::Integer(5))
-        ]))), test_result.value);
+        ]))), run("(append (list 1 2 3) (list 4 5))").value);
+
+        assert_eq!(Ok(Some(
+            DataType::Pair(
+                (
+                    Box::new(
+                        DataType::List(vec![
+                            DataType::Number(Number::Integer(1)),
+                            DataType::Number(Number::Integer(2)),
+                            DataType::Number(Number::Integer(3)),
+                        ])
+                    ),
+                    Box::new(DataType::Number(Number::Integer(4)))
+                )
+            )
+        )), run("(append (list 1 2 3) 4)").value);
+
+        assert_eq!(Ok(Some(
+            DataType::Pair(
+                (
+                    Box::new(
+                        DataType::List(vec![
+                            DataType::Number(Number::Integer(1)),
+                            DataType::Number(Number::Integer(2)),
+                            DataType::Number(Number::Integer(3)),
+                            DataType::Number(Number::Integer(4)),
+
+                        ])
+                    ),
+                    Box::new(DataType::Bool(false))
+                )
+            )
+        )), run("(append (list 1 2 3 4) #f)").value);
+
+        assert_eq!(Ok(Some(
+            DataType::Pair(
+                (
+                    Box::new(
+                        DataType::List(vec![
+                            DataType::Number(Number::Integer(1)),
+                            DataType::Number(Number::Integer(2))
+                        ])
+                    ),
+                    Box::new(DataType::String("hello".into()))
+                )
+            )
+        )), run("(append (list 1 2) \"hello\")").value);
+
+        assert_eq!(Ok(Some(
+            DataType::Pair(
+                (
+                    Box::new(
+                        DataType::List(vec![
+                            DataType::Number(Number::Integer(1)),
+                            DataType::Number(Number::Integer(2)),
+                            DataType::Number(Number::Integer(3)),
+                        ])
+                    ),
+                    Box::new(DataType::Symbol("world".into()))
+                )
+            )
+        )), run("(append (list 1 2 3) 'world)").value);
+
+        // TODO: test append with procedure and lambda
     }
 
     #[test]
