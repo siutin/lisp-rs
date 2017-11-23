@@ -139,6 +139,31 @@ fn state_test() {
     assert_eq!(Ok(Some(DataType::String("hello world".to_string()))), test_result2.value);
 }
 
+#[test]
+fn type_test() {
+    assert_eq!(Ok(Some(DataType::String("hello world".into()))), run("\"hello world\"").value);
+    assert_eq!(Err("can not find an end quote"), run("\"hello world").value);
+    assert_eq!(Ok(Some(DataType::Number(Number::Integer(1)))), run("1").value);
+    assert_eq!(Ok(Some(DataType::Number(Number::Float(3.9)))), run("3.9").value);
+    assert_eq!(Ok(Some(DataType::Symbol("foo".into()))), run("'foo").value);
+    assert_eq!(Ok(Some(DataType::Bool(true))), run("#t").value);
+    assert_eq!(Err("syntax error"), run("#tt").value);
+    assert_eq!(Ok(Some(DataType::Pair(
+        (
+            Box::new(DataType::Number(Number::Integer(1))),
+            Box::new(DataType::Number(Number::Integer(2)))
+        )
+    ))), run("(cons 1 2)").value);
+    assert_eq!(Ok(Some(DataType::List(vec![
+        DataType::Symbol("aa".into()),
+        DataType::Symbol("bbb".into()),
+        DataType::Symbol("cccc".into()),
+    ]
+    ))), run("(list 'aa 'bbb 'cccc)").value);
+    if let Ok(Some(DataType::Proc(_))) = run("+").value { assert!(true) } else { assert!(false) }
+    if let Ok(Some(DataType::Lambda(_))) = run("(lambda ()(print \"something\"))").value { assert!(true) } else { assert!(false) }
+}
+
 mod op {
     use super::*;
 
