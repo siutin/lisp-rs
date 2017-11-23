@@ -191,6 +191,7 @@ impl<T> FloatIterExt for T where T: Iterator<Item=f64> {
 #[derive(PartialEq)]
 pub enum DataType {
     Bool(bool),
+    Pair((Box<DataType>, Box<DataType>)),
     Number(Number),
     Symbol(String),
     String(String),
@@ -211,6 +212,7 @@ impl Env {
     fn get(&self, key: &String) -> Option<DataType> {
         match self.local.borrow().get::<str>(key) {
             Some(&DataType::Bool(b)) => Some(DataType::Bool(b)),
+            Some(&DataType::Pair(ref p)) => Some(DataType::Pair(p.clone())),
             Some(&DataType::Number(Number::Integer(i))) => Some(DataType::Number(Number::Integer(i))),
             Some(&DataType::Number(Number::Float(f))) => Some(DataType::Number(Number::Float(f))),
             Some(&DataType::Symbol(ref ss)) => Some(DataType::Symbol(ss.clone())),
@@ -856,6 +858,7 @@ pub fn setup() -> HashMap<String, DataType> {
                 Some(&DataType::String(ref s)) => Ok(Some(DataType::String(s.clone()))),
                 Some(&DataType::Proc(ref p)) => Ok(Some(DataType::Proc(p.clone()))),
                 Some(&DataType::Lambda(ref l)) => Ok(Some(DataType::Lambda(l.clone()))),
+                Some(&DataType::Pair(_)) => unimplemented!(),
                 None => { return Err("append function unknown argument type"); }
             };
         }
@@ -1200,6 +1203,7 @@ pub fn setup() -> HashMap<String, DataType> {
 fn datatype2str(value: &DataType) -> String {
     match value {
         &DataType::Bool(b) => format!("{}", b),
+        &DataType::Pair(ref p) => format!("({:?} . {:?})", p.0, p.1),
         &DataType::Number(Number::Integer(i)) => format!("{}", i),
         &DataType::Number(Number::Float(f)) => format!("{}", f),
         &DataType::Symbol(ref s) => format!("'{}", s),
