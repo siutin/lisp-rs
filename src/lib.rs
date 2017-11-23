@@ -858,7 +858,7 @@ pub fn setup() -> HashMap<String, DataType> {
                 Some(&DataType::String(ref s)) => Ok(Some(DataType::String(s.clone()))),
                 Some(&DataType::Proc(ref p)) => Ok(Some(DataType::Proc(p.clone()))),
                 Some(&DataType::Lambda(ref l)) => Ok(Some(DataType::Lambda(l.clone()))),
-                Some(&DataType::Pair(_)) => unimplemented!(),
+                Some(&DataType::Pair(ref p)) => Ok(Some(DataType::Pair((p.0.clone(), p.1.clone())))),
                 None => { return Err("append function unknown argument type"); }
             };
         }
@@ -875,15 +875,63 @@ pub fn setup() -> HashMap<String, DataType> {
                         for item in rest.iter() {
                             match item {
                                 &DataType::List(ref l2) => list.append(&mut l2.clone()),
-                                _ => unimplemented!()
-
-                                // TODO: requires pair structure for the following types
-                                //    &DataType::Number(n) => vec![list, DataType::Number(n)],
-                                //    &DataType::List(ref l) => vec![list, DataType::List(l.clone())],
-                                //    &DataType::Bool(b) => vec![list, DataType::Bool(b)],
-                                //    &DataType::Symbol(ref s) => vec![list, DataType::Symbol(s.clone())],
-                                //    &DataType::Proc(ref p) => vec![list, DataType::Proc(p.clone())],
-                                //    &DataType::Lambda(ref l) => vec![list, (DataType::Lambda(l.clone())]
+                                &DataType::Number(ref n) => {
+                                    return Ok(Some(
+                                        DataType::Pair(
+                                            (Box::new(DataType::List(list.clone())),
+                                             Box::new(DataType::Number(n.clone())))
+                                        )
+                                    ))
+                                },
+                                &DataType::Bool(b) => {
+                                    return Ok(Some(
+                                        DataType::Pair(
+                                            (Box::new(DataType::List(list.clone())),
+                                             Box::new(DataType::Bool(b)))
+                                        )
+                                    ))
+                                },
+                                &DataType::Pair(ref p) => {
+                                    list.push((*p.0).clone());
+                                    return Ok(Some(
+                                        DataType::Pair(
+                                            (Box::new(DataType::List(list.clone())),
+                                             p.1.clone())
+                                        )
+                                    ))
+                                },
+                                &DataType::Symbol(ref s) => {
+                                    return Ok(Some(
+                                        DataType::Pair(
+                                            (Box::new(DataType::List(list.clone())),
+                                             Box::new(DataType::Symbol(s.clone())))
+                                        )
+                                    ))
+                                },
+                                &DataType::String(ref s) => {
+                                    return Ok(Some(
+                                        DataType::Pair(
+                                            (Box::new(DataType::List(list.clone())),
+                                             Box::new(DataType::String(s.clone())))
+                                        )
+                                    ))
+                                },
+                                &DataType::Proc(ref p) => {
+                                    return Ok(Some(
+                                        DataType::Pair(
+                                            (Box::new(DataType::List(list.clone())),
+                                             Box::new(DataType::Proc(p.clone())))
+                                        )
+                                    ))
+                                },
+                                &DataType::Lambda(ref l) => {
+                                    return Ok(Some(
+                                        DataType::Pair(
+                                            (Box::new(DataType::List(list.clone())),
+                                             Box::new(DataType::Lambda(l.clone())))
+                                        )
+                                    ))
+                                }
                             }
                         }
                     }
