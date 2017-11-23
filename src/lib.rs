@@ -1047,6 +1047,21 @@ pub fn setup() -> HashMap<String, DataType> {
         }
     }))));
 
+    map.insert("cons".to_string(), DataType::Proc(Function(Rc::new(|vec: Vec<DataType>, _: Rc<RefCell<Env>>| {
+        debug!("Function - name: {:?} - Args: {:?}", "cons", vec);
+        if vec.len() != 2 {
+            return Err("cons function requires two argument only");
+        }
+
+        if let (Some(x), Some(y)) = (vec.get(0), vec.get(1)) {
+            Ok(Some(DataType::Pair(
+                (Box::new(x.clone()), Box::new(y.clone()))
+            )))
+        } else {
+            return Err("cons function unknown error")
+        }
+    }))));
+
     map.insert("length".to_string(), DataType::Proc(Function(Rc::new(|vec: Vec<DataType>, _: Rc<RefCell<Env>>| {
         debug!("Function - name: {:?} - Args: {:?}", "length", vec);
         if vec.len() != 1 {
