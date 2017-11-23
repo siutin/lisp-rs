@@ -285,6 +285,10 @@ mod std_function {
                 let test_result = run("(list? (lambda (x y) (+ x y)))");
                 assert_eq!(Ok(Some(DataType::Bool(false))), test_result.value);
             }
+            {
+                let test_result = run("(list? (cons 1 2))");
+                assert_eq!(Ok(Some(DataType::Bool(false))), test_result.value);
+            }
         }
 
         #[test]
@@ -316,6 +320,46 @@ mod std_function {
             {
                 let test_result = run("(number? (lambda (x y) (+ x y)))");
                 assert_eq!(Ok(Some(DataType::Bool(false))), test_result.value);
+            }
+            {
+                let test_result = run("(number? (cons 1 2))");
+                assert_eq!(Ok(Some(DataType::Bool(false))), test_result.value);
+            }
+        }
+
+        #[test]
+        fn pair_q() {
+            {
+                let test_result = run("(pair? (list 7 9 4 0 3))");
+                assert_eq!(Ok(Some(DataType::Bool(false))), test_result.value);
+            }
+            {
+                let test_result = run("(pair? 1)");
+                assert_eq!(Ok(Some(DataType::Bool(false))), test_result.value);
+            }
+            {
+                let test_result = run("(pair? 5.5)");
+                assert_eq!(Ok(Some(DataType::Bool(false))), test_result.value);
+            }
+            {
+                let test_result = run("(pair? \"hello\")");
+                assert_eq!(Ok(Some(DataType::Bool(false))), test_result.value);
+            }
+            {
+                let test_result = run("(pair? 'hello)");
+                assert_eq!(Ok(Some(DataType::Bool(false))), test_result.value);
+            }
+            {
+                let test_result = run("(pair? +)");
+                assert_eq!(Ok(Some(DataType::Bool(false))), test_result.value);
+            }
+            {
+                let test_result = run("(pair? (lambda (x y) (+ x y)))");
+                assert_eq!(Ok(Some(DataType::Bool(false))), test_result.value);
+            }
+            {
+                let test_result = run("(pair? (cons 1 2))");
+                assert_eq!(Ok(Some(DataType::Bool(true))), test_result.value);
             }
         }
 
@@ -349,6 +393,10 @@ mod std_function {
                 let test_result = run("(procedure? (lambda (x y) (+ x y)))");
                 assert_eq!(Ok(Some(DataType::Bool(true))), test_result.value);
             }
+            {
+                let test_result = run("(procedure? (cons 1 2))");
+                assert_eq!(Ok(Some(DataType::Bool(false))), test_result.value);
+            }
         }
 
         #[test]
@@ -381,6 +429,10 @@ mod std_function {
                 let test_result = run("(string? (lambda (x y) (+ x y)))");
                 assert_eq!(Ok(Some(DataType::Bool(false))), test_result.value);
             }
+            {
+                let test_result = run("(string? (cons 1 2))");
+                assert_eq!(Ok(Some(DataType::Bool(false))), test_result.value);
+            }
         }
 
         #[test]
@@ -411,6 +463,10 @@ mod std_function {
             }
             {
                 let test_result = run("(symbol? (lambda (x y) (+ x y)))");
+                assert_eq!(Ok(Some(DataType::Bool(false))), test_result.value);
+            }
+            {
+                let test_result = run("(symbol? (cons 1 2))");
                 assert_eq!(Ok(Some(DataType::Bool(false))), test_result.value);
             }
         }
