@@ -366,6 +366,26 @@ mod std_function {
                                    (cons (car (cdr x))
                                    (car x) ))
                            (list (list 1 2) (list 3 4)))"#).value);
+
+        {
+            let env_ref = default_env();
+            run_with_env("(define fib (lambda (n) (if (< n 2) 1 (+ (fib (- n 1)) (fib (- n 2))))))", env_ref.clone());
+
+            assert_eq!(Ok(Some(DataType::List(
+                vec![
+                    DataType::Number(Number::Integer(1)),
+                    DataType::Number(Number::Integer(1)),
+                    DataType::Number(Number::Integer(2)),
+                    DataType::Number(Number::Integer(3)),
+                    DataType::Number(Number::Integer(5)),
+                    DataType::Number(Number::Integer(8)),
+                    DataType::Number(Number::Integer(13)),
+                    DataType::Number(Number::Integer(21)),
+                    DataType::Number(Number::Integer(34)),
+                    DataType::Number(Number::Integer(55))
+                ]
+            ))), run_with_env("(map fib (list 0 1 2 3 4 5 6 7 8 9))", env_ref.clone()).value);
+        }
     }
 
     #[test]
