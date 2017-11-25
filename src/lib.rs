@@ -1097,6 +1097,62 @@ pub fn setup() -> HashMap<String, DataType> {
         }
     }))));
 
+    map.insert("map".to_string(), DataType::Proc(Function(Rc::new(|vec: Vec<DataType>, env: Rc<RefCell<Env>>| {
+        debug!("Function - name: {:?} - Args: {:?}", "map", vec);
+        if vec.len() != 2 {
+            return Err("map function requires two argument only");
+        }
+
+        let value_option = vec.first();
+        if value_option.is_none() {
+            return Err("map function unknown argument type");
+        }
+
+        if let (Some(d), Some(&DataType::List(ref l))) = (vec.first(), vec.get(1)) {
+            match d {
+                &DataType::Proc(ref f) => {
+                    let list = l.iter()
+                        .map(|item| f.call(vec![item.clone()], env.clone()))
+                        .flat_map(|x| x.ok())
+                        .filter(|x| x.is_some())
+                        .flat_map(|x| x)
+                        .collect::<Vec<DataType>>();
+
+                    Ok(Some(DataType::List(list)))
+                },
+                &DataType::Lambda(ref p) => {
+                    let list = l.iter().map(|item| {
+                        let procedure_local = p.env.borrow_mut().local.clone();
+                        let args = vec![item.clone()];
+                        for (name_ref, value_ref) in p.params.iter().zip(args.into_iter()) {
+                            if let (Some(&DataType::Symbol(ref name)), Some(ref value)) = (Some(name_ref), Some(value_ref)) {
+                                procedure_local.borrow_mut().insert(name.to_string(), value.clone());
+                            } else {
+                                unreachable!()
+                            }
+                        }
+
+                        let proc_env = Env {
+                            local: procedure_local,
+                            parent: p.env.borrow_mut().parent.clone()
+                        };
+
+                        debug!("proc_env: {:?}", proc_env);
+                        eval(Some(p.body.clone()), Rc::new(RefCell::new(proc_env)))
+                    }).flat_map(|x| x.ok())
+                        .filter(|x| x.is_some())
+                        .flat_map(|x| x)
+                        .collect::<Vec<DataType>>();
+
+                    Ok(Some(DataType::List(list)))
+                },
+                _ => unreachable!()
+            }
+        } else {
+            Err("syntax error")
+        }
+    }))));
+
     map.insert("max".to_string(), DataType::Proc(Function(Rc::new(|vec: Vec<DataType>, _: Rc<RefCell<Env>>| {
         debug!("Function - name: {:?} - Args: {:?}", "max", vec);
         let is_numbers = vec.iter().all(|&ref x| if let &DataType::Number(_) = x { true } else { false });
