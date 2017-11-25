@@ -324,6 +324,51 @@ mod std_function {
     }
 
     #[test]
+    fn map() {
+        assert_eq!(Ok(Some(
+            DataType::List(vec![
+                DataType::Bool(false),
+                DataType::Bool(false),
+                DataType::Bool(true),
+                DataType::Bool(false),
+                DataType::Bool(false),
+                DataType::Bool(true),
+                DataType::Bool(false),
+            ])
+        )), run("(map number? (list #t \"hello\" 3 's - 2.1 (lambda () (+ 1 2)) ))").value);
+
+        assert_eq!(Ok(Some(
+            DataType::List(vec![
+                DataType::Number(Number::Integer(1)),
+                DataType::Number(Number::Integer(4)),
+                DataType::Number(Number::Integer(9)),
+                DataType::Number(Number::Integer(16)),
+                DataType::Number(Number::Integer(25)),
+            ])
+        )), run("(map (lambda (x) (* x x)) (list 1 2 3 4 5))").value);
+
+        assert_eq!(Ok(Some(
+            DataType::List(vec![
+                DataType::Pair(
+                    (
+                        Box::new(DataType::Number(Number::Integer(2))),
+                        Box::new(DataType::Number(Number::Integer(1)))
+                    )
+                ),
+                DataType::Pair(
+                    (
+                        Box::new(DataType::Number(Number::Integer(4))),
+                        Box::new(DataType::Number(Number::Integer(3)))
+                    )
+                )
+            ])
+        )), run(r#"(map (lambda (x)
+                                   (cons (car (cdr x))
+                                   (car x) ))
+                           (list (list 1 2) (list 3 4)))"#).value);
+    }
+
+    #[test]
     fn max_min() {
         {
             let test_result = run("(max 7 9 4 0 3)");
