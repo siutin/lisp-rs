@@ -307,58 +307,13 @@ pub fn eval(ast_option: Option<AST>, env: Rc<RefCell<Env>>) -> Result<Option<Dat
     debug!("eval");
     debug!("{:?}", ast_option);
     match ast_option.clone() {
-        Some(AST::Symbol(s)) => eval_symbol(s, ast_option, env),
+        Some(AST::Symbol(s)) => {
+            debug!("ast is a symbol: {:?}", s);
+            eval_symbol_ast(env, ast_option, s)
+        }
         Some(AST::Children(list)) => {
             debug!("ast is a children: {:?}", list);
-
-            if list.is_empty() {
-                return Err("syntax error");
-            }
-
-            tuplet!((s0,s1,s2,s3) = list);
-
-            if let Some(&AST::Symbol(ref s0)) = s0 {
-                match s0.as_str() {
-                    "quote" => {
-                        debug!("quote-expression");
-                        tuplet!((s0_option,s1_option,*rest_option) = list);
-
-                        match s1_option {
-                            Some(ref ast) => {
-                                match ast2datatype(ast) {
-                                    Ok(data) => Ok(Some(data)),
-                                    Err(e) => { return Err(e); }
-                                }
-                            }
-                            None => { return Err("wrong number of parts"); }
-                        }
-                    }
-                    "if" => {
-                        debug!("if-expression");
-                        if let (Some(&ref cond), Some(&ref conseq), Some(&ref alt)) = (s1, s2, s3) {
-                            match eval(Some(cond.clone()), env.clone()) {
-                                Ok(Some(DataType::Bool(b))) => {
-                                    match b {
-                                        true => eval(Some(conseq.clone()), env.clone()),
-                                        false => eval(Some(alt.clone()), env.clone())
-                                    }
-                                }
-                                Ok(_) => { return Err("syntax error"); }
-                                Err(e) => { return Err(e); }
-                            }
-                        } else {
-                            return Err("wrong syntax for if expression");
-                        }
-                    }
-                    "define" => eval_s0_define_symbol(s1, s2, ast_option, env),
-                    "lambda" => eval_s0_lambda_symbol(s1, s2, ast_option, env),
-                    _ => {
-                        eval_s0_symbol(s0, &list, ast_option, env)
-                    }
-                }
-            } else {
-                eval_s0_nonsymbol(s0, &list, ast_option, env)
-            }
+            eval_children_ast(env, ast_option, &list)
         }
         Some(_) | None => {
             debug!("ast is not a symbol/children");
@@ -373,8 +328,7 @@ pub fn eval(ast_option: Option<AST>, env: Rc<RefCell<Env>>) -> Result<Option<Dat
     }
 }
 
-fn eval_symbol(s: String, _: Option<AST>, env: Rc<RefCell<Env>>) -> Result<Option<DataType>, &'static str> {
-    debug!("ast is a symbol: {:?}", s);
+fn eval_symbol_ast(env: Rc<RefCell<Env>>, _: Option<AST>, s: String) -> Result<Option<DataType>, &'static str> {
     if s.starts_with("#") {
         if s.len() != 2 {
             return Err("syntax error");
@@ -400,8 +354,65 @@ fn eval_symbol(s: String, _: Option<AST>, env: Rc<RefCell<Env>>) -> Result<Optio
     }
 }
 
-fn eval_s0_symbol(s0: &String, list: &Vec<AST>, _: Option<AST>, env: Rc<RefCell<Env>>) -> Result<Option<DataType>, &'static str> {
-    debug!("Some(AST::Symbol) but not define");
+fn eval_children_ast(env: Rc<RefCell<Env>>, ast_option: Option<AST>, list: &Vec<AST>) -> Result<Option<DataType>, &'static str> {
+    if list.is_empty() {
+        return Err("syntax error");
+    }
+
+    tuplet!((s0,s1,s2,s3) = list);
+
+    if let Some(&AST::Symbol(ref s0)) = s0 {
+        match s0.as_str() {
+            "quote" => {
+                debug!("quote-expression");
+                tuplet!((s0_option,s1_option,*rest_option) = list);
+
+                match s1_option {
+                    Some(ref ast) => {
+                        match ast2datatype(ast) {
+                            Ok(data) => Ok(Some(data)),
+                            Err(e) => { return Err(e); }
+                        }
+                    }
+                    None => { return Err("wrong number of parts"); }
+                }
+            }
+            "if" => {
+                debug!("if-expression");
+                if let (Some(&ref cond), Some(&ref conseq), Some(&ref alt)) = (s1, s2, s3) {
+                    match eval(Some(cond.clone()), env.clone()) {
+                        Ok(Some(DataType::Bool(b))) => {
+                            match b {
+                                true => eval(Some(conseq.clone()), env.clone()),
+                                false => eval(Some(alt.clone()), env.clone())
+                            }
+                        }
+                        Ok(_) => { return Err("syntax error"); }
+                        Err(e) => { return Err(e); }
+                    }
+                } else {
+                    return Err("wrong syntax for if expression");
+                }
+            }
+            "define" => {
+                debug!("define-expression");
+                eval_s0_define_symbol(env, ast_option, s1, s2)
+            }
+            "lambda" => {
+                debug!("lambda-expression");
+                eval_s0_lambda_symbol(env, ast_option, s1, s2)
+            }
+            _ => {
+                debug!("Some(AST::Symbol)");
+                eval_s0_symbol(env, ast_option, s0, &list)
+            }
+        }
+    } else {
+        eval_s0_nonsymbol(env, ast_option, s0, &list)
+    }
+}
+
+fn eval_s0_symbol(env: Rc<RefCell<Env>>, _: Option<AST>, s0: &String, list: &Vec<AST>) -> Result<Option<DataType>, &'static str> {
     debug!("proc_key : {}", s0);
     debug!("ENV: {:?}", env);
 
@@ -449,7 +460,7 @@ fn eval_s0_symbol(s0: &String, list: &Vec<AST>, _: Option<AST>, env: Rc<RefCell<
     }
 }
 
-fn eval_s0_nonsymbol(s0: Option<&AST>, list: &Vec<AST>, _: Option<AST>, env: Rc<RefCell<Env>>) -> Result<Option<DataType>, &'static str> {
+fn eval_s0_nonsymbol(env: Rc<RefCell<Env>>, _: Option<AST>, s0: Option<&AST>, list: &Vec<AST>) -> Result<Option<DataType>, &'static str> {
     debug!("first ast is not a symbol");
     debug!("proc_key : {:?}", s0);
 
@@ -506,7 +517,7 @@ fn eval_s0_nonsymbol(s0: Option<&AST>, list: &Vec<AST>, _: Option<AST>, env: Rc<
     }
 }
 
-fn eval_s0_define_symbol(s1: Option<&AST>, s2: Option<&AST>, _: Option<AST>, env: Rc<RefCell<Env>>) -> Result<Option<DataType>, &'static str> {
+fn eval_s0_define_symbol(env: Rc<RefCell<Env>>, _: Option<AST>, s1: Option<&AST>, s2: Option<&AST>) -> Result<Option<DataType>, &'static str> {
     if let (Some(&AST::Symbol(ref s1)), Some(&ref a2)) = (s1, s2) {
         match a2.clone() {
             AST::Integer(i) => {
@@ -562,9 +573,7 @@ fn eval_s0_define_symbol(s1: Option<&AST>, s2: Option<&AST>, _: Option<AST>, env
     return Err("wrong syntax for define expression");
 }
 
-fn eval_s0_lambda_symbol(s1: Option<&AST>, s2: Option<&AST>, _: Option<AST>, env: Rc<RefCell<Env>>) -> Result<Option<DataType>, &'static str> {
-
-    debug!("lambda-expression");
+fn eval_s0_lambda_symbol(env: Rc<RefCell<Env>>, _: Option<AST>, s1: Option<&AST>, s2: Option<&AST>) -> Result<Option<DataType>, &'static str> {
     if let (Some(&AST::Children(ref args)), Some(&AST::Children(ref body))) = (s1, s2) {
         debug!("ENV: {:?}", env);
         debug!("args: {:?}", args);
@@ -604,7 +613,6 @@ fn eval_s0_lambda_symbol(s1: Option<&AST>, s2: Option<&AST>, _: Option<AST>, env
         Err("syntax error")
     }
 }
-
 
 fn prepare_arguments(arguments: &[AST], env: Rc<RefCell<Env>>) -> Result<Vec<DataType>, &'static str> {
     let args_result: Result<Vec<_>, _> = arguments.iter()
@@ -686,7 +694,6 @@ pub fn setup() -> HashMap<String, DataType> {
                 acc
             });
         Ok(Some(DataType::Number(value)))
-
     }))));
 
     map.insert("*".to_string(), DataType::Proc(
@@ -811,16 +818,16 @@ pub fn setup() -> HashMap<String, DataType> {
                                             (Box::new(DataType::List(list.clone())),
                                              Box::new(DataType::Number(n)))
                                         )
-                                    ))
-                                },
+                                    ));
+                                }
                                 &DataType::Bool(b) => {
                                     return Ok(Some(
                                         DataType::Pair(
                                             (Box::new(DataType::List(list.clone())),
                                              Box::new(DataType::Bool(b)))
                                         )
-                                    ))
-                                },
+                                    ));
+                                }
                                 &DataType::Pair(ref p) => {
                                     list.push((*p.0).clone());
                                     return Ok(Some(
@@ -828,39 +835,39 @@ pub fn setup() -> HashMap<String, DataType> {
                                             (Box::new(DataType::List(list.clone())),
                                              p.1.clone())
                                         )
-                                    ))
-                                },
+                                    ));
+                                }
                                 &DataType::Symbol(ref s) => {
                                     return Ok(Some(
                                         DataType::Pair(
                                             (Box::new(DataType::List(list.clone())),
                                              Box::new(DataType::Symbol(s.clone())))
                                         )
-                                    ))
-                                },
+                                    ));
+                                }
                                 &DataType::String(ref s) => {
                                     return Ok(Some(
                                         DataType::Pair(
                                             (Box::new(DataType::List(list.clone())),
                                              Box::new(DataType::String(s.clone())))
                                         )
-                                    ))
-                                },
+                                    ));
+                                }
                                 &DataType::Proc(ref p) => {
                                     return Ok(Some(
                                         DataType::Pair(
                                             (Box::new(DataType::List(list.clone())),
                                              Box::new(DataType::Proc(p.clone())))
                                         )
-                                    ))
-                                },
+                                    ));
+                                }
                                 &DataType::Lambda(ref l) => {
                                     return Ok(Some(
                                         DataType::Pair(
                                             (Box::new(DataType::List(list.clone())),
                                              Box::new(DataType::Lambda(l.clone())))
                                         )
-                                    ))
+                                    ));
                                 }
                             }
                         }
@@ -973,7 +980,7 @@ pub fn setup() -> HashMap<String, DataType> {
                 } else {
                     Err("cdr function requires a non-empty list")
                 }
-            },
+            }
             &DataType::Pair(ref p) => Ok(Some(*(p.1).clone())),
             _ => Err("cdr function requires an argument of type 'list'/ 'pair'")
         }
@@ -999,7 +1006,7 @@ pub fn setup() -> HashMap<String, DataType> {
                 }
             }
         } else {
-            return Err("cons function unknown error")
+            return Err("cons function unknown error");
         }
     }))));
 
@@ -1060,7 +1067,7 @@ pub fn setup() -> HashMap<String, DataType> {
                         .collect::<Vec<DataType>>();
 
                     Ok(Some(DataType::List(list)))
-                },
+                }
                 &DataType::Lambda(ref p) => {
                     let list = l.iter().map(|item| {
                         let procedure_local = p.env.borrow_mut().local.clone();
@@ -1086,7 +1093,7 @@ pub fn setup() -> HashMap<String, DataType> {
                         .collect::<Vec<DataType>>();
 
                     Ok(Some(DataType::List(list)))
-                },
+                }
                 _ => unreachable!()
             }
         } else {
