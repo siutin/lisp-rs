@@ -307,32 +307,7 @@ pub fn eval(ast_option: Option<AST>, env: Rc<RefCell<Env>>) -> Result<Option<Dat
     debug!("eval");
     debug!("{:?}", ast_option);
     match ast_option.clone() {
-        Some(AST::Symbol(s)) => {
-            debug!("ast is a symbol: {:?}", s);
-            if s.starts_with("#") {
-                if s.len() != 2 {
-                    return Err("syntax error");
-                }
-                let c_option = s.chars().nth(1);
-                if let Some('t') = c_option {
-                    Ok(Some(DataType::Bool(true)))
-                } else if let Some('f') = c_option {
-                    Ok(Some(DataType::Bool(false)))
-                } else {
-                    Err("syntax error")
-                }
-            } else if s.len() > 1 && s.starts_with("'") {
-                let slice = &s[1..s.len()];
-                Ok(Some(DataType::Symbol(slice.to_string())))
-            } else if s.starts_with("\"") && s.ends_with("\"") {
-                Ok(Some(DataType::String((&s[1..s.len() - 1]).to_string())))
-            } else {
-                match env.borrow().get(&s) {
-                    Some(data) => Ok(Some(data)),
-                    None => Err("symbol is not defined.")
-                }
-            }
-        }
+        Some(AST::Symbol(s)) => eval_symbol(s, ast_option, env),
         Some(AST::Children(list)) => {
             debug!("ast is a children: {:?}", list);
 
@@ -375,206 +350,14 @@ pub fn eval(ast_option: Option<AST>, env: Rc<RefCell<Env>>) -> Result<Option<Dat
                             return Err("wrong syntax for if expression");
                         }
                     }
-                    "define" => {
-                        if let (Some(&AST::Symbol(ref s1)), Some(&ref a2)) = (s1, s2) {
-                            match a2.clone() {
-                                AST::Integer(i) => {
-                                    let env_borrow_mut = env.borrow_mut();
-                                    env_borrow_mut.local.borrow_mut().insert(s1.clone(), DataType::Number(i as f64));
-                                }
-                                AST::Float(f) => {
-                                    let env_borrow_mut = env.borrow_mut();
-                                    env_borrow_mut.local.borrow_mut().insert(s1.clone(), DataType::Number(f));
-                                }
-                                AST::Symbol(ref s) => {
-                                    if s.len() > 1 && s.starts_with("#") {
-                                        let c_option = s.chars().nth(1);
-                                        if let Some('t') = c_option {
-                                            let env_borrow_mut = env.borrow_mut();
-                                            env_borrow_mut.local.borrow_mut().insert(s1.clone(), DataType::Bool(true));
-                                        } else if let Some('f') = c_option {
-                                            let env_borrow_mut = env.borrow_mut();
-                                            env_borrow_mut.local.borrow_mut().insert(s1.clone(), DataType::Bool(false));
-                                        } else {
-                                            return Err("syntax error");
-                                        }
-                                    } else if s.starts_with("\"") && s.ends_with("\"") {
-                                        let env_borrow_mut = env.borrow_mut();
-                                        env_borrow_mut.local.borrow_mut().insert(s1.clone(), DataType::String((&s[1..s.len() - 1]).to_string()));
-                                    } else {
-                                        let data_option = env.borrow().get(&s);
-                                        if let Some(data) = data_option {
-                                            let env_borrow_mut = env.borrow_mut();
-                                            env_borrow_mut.local.borrow_mut().insert(s1.clone(), data);
-                                        } else {
-                                            return Err("symbol is not defined");
-                                        }
-                                    }
-                                }
-                                AST::Children(ref v) => {
-                                    debug!("children: {:?}", v);
-
-                                    let data_option = eval(Some(a2.clone()), env.clone());
-                                    if let Ok(Some(DataType::Lambda(ref p))) = data_option {
-                                        let env_borrow_mut = env.borrow_mut();
-                                        env_borrow_mut.local.borrow_mut().insert(s1.clone(), DataType::Lambda(p.clone()));
-                                    } else if let Ok(Some(DataType::List(ref v))) = data_option {
-                                        let env_borrow_mut = env.borrow_mut();
-                                        env_borrow_mut.local.borrow_mut().insert(s1.clone(), DataType::List(v.clone()));
-                                    } else if let Err(e) = data_option {
-                                        return Err(e);
-                                    }
-                                }
-                            }
-                            return Ok(None);
-                        }
-                        return Err("wrong syntax for define expression");
-                    }
-                    "lambda" => {
-                        debug!("lambda-expression");
-                        if let (Some(&AST::Children(ref args)), Some(&AST::Children(ref body))) = (s1, s2) {
-                            debug!("ENV: {:?}", env);
-                            debug!("args: {:?}", args);
-                            debug!("body: {:?}", body);
-
-                            // convert args AST to Datatype symbol
-                            let args_result: Result<Vec<_>, _> = args.iter().map(|ref arg|
-                                match arg {
-                                    &&AST::Symbol(ref arg_string) => Ok(DataType::Symbol(arg_string.to_string())),
-                                    _ => Err("lambda argument must be a symbol")
-                                }
-                            ).collect();
-
-                            if let Result::Err(ref e) = args_result { return Err(e); }
-
-                            let args_meta = args_result.unwrap().iter()
-                                .map(|ref mut x| x.clone())
-                                .collect::<Vec<DataType>>();
-
-                            let local = RefCell::new(HashMap::new());
-                            let parent_env_box = Box::new(env.clone());
-                            let procedure_env = Env {
-                                local,
-                                parent: Some(parent_env_box)
-                            };
-
-                            debug!("procedure_env: {:?}", procedure_env);
-                            let procedure = Procedure {
-                                body: AST::Children(body.clone()),
-                                params: args_meta,
-                                env: Rc::new(RefCell::new(procedure_env))
-                            };
-                            debug!("procedure: {:?}", procedure);
-
-                            Ok(Some(DataType::Lambda(procedure)))
-                        } else {
-                            Err("syntax error")
-                        }
-                    }
+                    "define" => eval_s0_define_symbol(s1, s2, ast_option, env),
+                    "lambda" => eval_s0_lambda_symbol(s1, s2, ast_option, env),
                     _ => {
-                        debug!("Some(AST::Symbol) but not define");
-                        debug!("proc_key : {}", s0);
-                        debug!("ENV: {:?}", env);
-
-                        let mut data_option = match env.borrow().get(s0) {
-                            Some(d) => Some(d.clone()),
-                            None => None
-                        };
-
-                        debug!("data_option: {:?}", data_option);
-
-                        match data_option {
-                            Some(DataType::Proc(ref f)) => {
-                                let slice = &list[1..list.len()];
-                                execute(f, slice, env)
-                            }
-                            Some(DataType::Lambda(ref mut p)) => {
-                                debug!("first elm symbol - lambda: {:?}", p);
-                                let slice = &list[1..list.len()];
-                                match prepare_arguments(slice, env.clone()) {
-                                    Ok(args) => {
-                                        debug!("first elm symbol - procedure params: {:?}", p.params);
-                                        let procedure_local = p.env.borrow_mut().local.clone();
-
-                                        for (name_ref, value_ref) in p.params.iter().zip(args.into_iter()) {
-                                            debug!("first elm symbol - procedure params - name: {:?} value: {:?}", name_ref, value_ref);
-                                            if let (Some(&DataType::Symbol(ref name)), Some(ref value)) = (Some(name_ref), Some(value_ref)) {
-                                                procedure_local.borrow_mut().insert(name.to_string(), value.clone());
-                                            } else {
-                                                unreachable!()
-                                            }
-                                        }
-
-                                        let proc_env = Env {
-                                            local: procedure_local,
-                                            parent: p.env.borrow_mut().parent.clone()
-                                        };
-
-                                        debug!("proc_env: {:?}", proc_env);
-                                        return eval(Some(p.body.clone()), Rc::new(RefCell::new(proc_env)));
-                                    }
-                                    Err(e) => return Err(e)
-                                }
-                            }
-                            Some(_) | None => Err("symbol is not defined.")
-                        }
+                        eval_s0_symbol(s0, &list, ast_option, env)
                     }
                 }
             } else {
-                debug!("first ast is not a symbol");
-                debug!("proc_key : {:?}", s0);
-
-                tuplet!((s0_option,*rest_option) = list);
-
-                if let Some(&AST::Children(_)) = s0_option {
-                    match eval(Some(list.first().unwrap().clone()), env.clone()) {
-                        Ok(Some(DataType::Proc(ref f))) => {
-                            debug!("first elm function - function: {:?}", f);
-                            match rest_option {
-                                Some(rest) => execute(f, rest, env),
-                                None => execute(f, &vec![], env)
-                            }
-                        }
-                        Ok(Some(DataType::Lambda(ref mut p))) => {
-                            debug!("first elm lambda - lambda: {:?} - procedure params: {:?}", p, p.params);
-                            let proc_env = match rest_option {
-                                Some(rest) => {
-                                    match prepare_arguments(rest, env.clone()) {
-                                        Ok(args) => {
-                                            let p_env_borrow_mut = p.env.borrow_mut();
-                                            for (name_ref, value_ref) in p.params.iter().zip(args.into_iter()) {
-                                                debug!("first elm lambda - procedure params - name: {:?} value: {:?}", name_ref, value_ref);
-                                                if let (Some(&DataType::Symbol(ref name)), Some(ref value)) = (Some(name_ref), Some(value_ref)) {
-                                                    p_env_borrow_mut.local.borrow_mut().insert(name.to_string(), value.clone());
-                                                } else {
-                                                    unreachable!()
-                                                }
-                                            }
-                                            Env {
-                                                local: p_env_borrow_mut.local.clone(),
-                                                parent: p_env_borrow_mut.parent.clone()
-                                            }
-                                        }
-                                        Err(e) => return Err(e)
-                                    }
-                                }
-                                None => {
-                                    let p_env_borrow_mut = p.env.borrow_mut();
-                                    Env {
-                                        local: p_env_borrow_mut.local.clone(),
-                                        parent: p_env_borrow_mut.parent.clone()
-                                    }
-                                }
-                            };
-                            debug!("proc_env: {:?}", proc_env);
-                            return eval(Some(p.body.clone()), Rc::new(RefCell::new(proc_env)));
-                        }
-                        Ok(_) => { return Err("unsupported data type on first element"); }
-                        Err(e) => { return Err(e); }
-                    }
-                } else {
-                    return Err("syntax error");
-                }
+                eval_s0_nonsymbol(s0, &list, ast_option, env)
             }
         }
         Some(_) | None => {
@@ -589,6 +372,239 @@ pub fn eval(ast_option: Option<AST>, env: Rc<RefCell<Env>>) -> Result<Option<Dat
         }
     }
 }
+
+fn eval_symbol(s: String, _: Option<AST>, env: Rc<RefCell<Env>>) -> Result<Option<DataType>, &'static str> {
+    debug!("ast is a symbol: {:?}", s);
+    if s.starts_with("#") {
+        if s.len() != 2 {
+            return Err("syntax error");
+        }
+        let c_option = s.chars().nth(1);
+        if let Some('t') = c_option {
+            Ok(Some(DataType::Bool(true)))
+        } else if let Some('f') = c_option {
+            Ok(Some(DataType::Bool(false)))
+        } else {
+            Err("syntax error")
+        }
+    } else if s.len() > 1 && s.starts_with("'") {
+        let slice = &s[1..s.len()];
+        Ok(Some(DataType::Symbol(slice.to_string())))
+    } else if s.starts_with("\"") && s.ends_with("\"") {
+        Ok(Some(DataType::String((&s[1..s.len() - 1]).to_string())))
+    } else {
+        match env.borrow().get(&s) {
+            Some(data) => Ok(Some(data)),
+            None => Err("symbol is not defined.")
+        }
+    }
+}
+
+fn eval_s0_symbol(s0: &String, list: &Vec<AST>, _: Option<AST>, env: Rc<RefCell<Env>>) -> Result<Option<DataType>, &'static str> {
+    debug!("Some(AST::Symbol) but not define");
+    debug!("proc_key : {}", s0);
+    debug!("ENV: {:?}", env);
+
+    let mut data_option = match env.borrow().get(s0) {
+        Some(d) => Some(d.clone()),
+        None => None
+    };
+
+    debug!("data_option: {:?}", data_option);
+
+    match data_option {
+        Some(DataType::Proc(ref f)) => {
+            let slice = &list[1..list.len()];
+            execute(f, slice, env)
+        }
+        Some(DataType::Lambda(ref mut p)) => {
+            debug!("first elm symbol - lambda: {:?}", p);
+            let slice = &list[1..list.len()];
+            match prepare_arguments(slice, env.clone()) {
+                Ok(args) => {
+                    debug!("first elm symbol - procedure params: {:?}", p.params);
+                    let procedure_local = p.env.borrow_mut().local.clone();
+
+                    for (name_ref, value_ref) in p.params.iter().zip(args.into_iter()) {
+                        debug!("first elm symbol - procedure params - name: {:?} value: {:?}", name_ref, value_ref);
+                        if let (Some(&DataType::Symbol(ref name)), Some(ref value)) = (Some(name_ref), Some(value_ref)) {
+                            procedure_local.borrow_mut().insert(name.to_string(), value.clone());
+                        } else {
+                            unreachable!()
+                        }
+                    }
+
+                    let proc_env = Env {
+                        local: procedure_local,
+                        parent: p.env.borrow_mut().parent.clone()
+                    };
+
+                    debug!("proc_env: {:?}", proc_env);
+                    return eval(Some(p.body.clone()), Rc::new(RefCell::new(proc_env)));
+                }
+                Err(e) => return Err(e)
+            }
+        }
+        Some(_) | None => Err("symbol is not defined.")
+    }
+}
+
+fn eval_s0_nonsymbol(s0: Option<&AST>, list: &Vec<AST>, _: Option<AST>, env: Rc<RefCell<Env>>) -> Result<Option<DataType>, &'static str> {
+    debug!("first ast is not a symbol");
+    debug!("proc_key : {:?}", s0);
+
+    tuplet!((s0_option,*rest_option) = list);
+
+    if let Some(&AST::Children(_)) = s0_option {
+        match eval(Some(list.first().unwrap().clone()), env.clone()) {
+            Ok(Some(DataType::Proc(ref f))) => {
+                debug!("first elm function - function: {:?}", f);
+                match rest_option {
+                    Some(rest) => execute(f, rest, env),
+                    None => execute(f, &vec![], env)
+                }
+            }
+            Ok(Some(DataType::Lambda(ref mut p))) => {
+                debug!("first elm lambda - lambda: {:?} - procedure params: {:?}", p, p.params);
+                let proc_env = match rest_option {
+                    Some(rest) => {
+                        match prepare_arguments(rest, env.clone()) {
+                            Ok(args) => {
+                                let p_env_borrow_mut = p.env.borrow_mut();
+                                for (name_ref, value_ref) in p.params.iter().zip(args.into_iter()) {
+                                    debug!("first elm lambda - procedure params - name: {:?} value: {:?}", name_ref, value_ref);
+                                    if let (Some(&DataType::Symbol(ref name)), Some(ref value)) = (Some(name_ref), Some(value_ref)) {
+                                        p_env_borrow_mut.local.borrow_mut().insert(name.to_string(), value.clone());
+                                    } else {
+                                        unreachable!()
+                                    }
+                                }
+                                Env {
+                                    local: p_env_borrow_mut.local.clone(),
+                                    parent: p_env_borrow_mut.parent.clone()
+                                }
+                            }
+                            Err(e) => return Err(e)
+                        }
+                    }
+                    None => {
+                        let p_env_borrow_mut = p.env.borrow_mut();
+                        Env {
+                            local: p_env_borrow_mut.local.clone(),
+                            parent: p_env_borrow_mut.parent.clone()
+                        }
+                    }
+                };
+                debug!("proc_env: {:?}", proc_env);
+                return eval(Some(p.body.clone()), Rc::new(RefCell::new(proc_env)));
+            }
+            Ok(_) => { return Err("unsupported data type on first element"); }
+            Err(e) => { return Err(e); }
+        }
+    } else {
+        return Err("syntax error");
+    }
+}
+
+fn eval_s0_define_symbol(s1: Option<&AST>, s2: Option<&AST>, _: Option<AST>, env: Rc<RefCell<Env>>) -> Result<Option<DataType>, &'static str> {
+    if let (Some(&AST::Symbol(ref s1)), Some(&ref a2)) = (s1, s2) {
+        match a2.clone() {
+            AST::Integer(i) => {
+                let env_borrow_mut = env.borrow_mut();
+                env_borrow_mut.local.borrow_mut().insert(s1.clone(), DataType::Number(i as f64));
+            }
+            AST::Float(f) => {
+                let env_borrow_mut = env.borrow_mut();
+                env_borrow_mut.local.borrow_mut().insert(s1.clone(), DataType::Number(f));
+            }
+            AST::Symbol(ref s) => {
+                if s.len() > 1 && s.starts_with("#") {
+                    let c_option = s.chars().nth(1);
+                    if let Some('t') = c_option {
+                        let env_borrow_mut = env.borrow_mut();
+                        env_borrow_mut.local.borrow_mut().insert(s1.clone(), DataType::Bool(true));
+                    } else if let Some('f') = c_option {
+                        let env_borrow_mut = env.borrow_mut();
+                        env_borrow_mut.local.borrow_mut().insert(s1.clone(), DataType::Bool(false));
+                    } else {
+                        return Err("syntax error");
+                    }
+                } else if s.starts_with("\"") && s.ends_with("\"") {
+                    let env_borrow_mut = env.borrow_mut();
+                    env_borrow_mut.local.borrow_mut().insert(s1.clone(), DataType::String((&s[1..s.len() - 1]).to_string()));
+                } else {
+                    let data_option = env.borrow().get(&s);
+                    if let Some(data) = data_option {
+                        let env_borrow_mut = env.borrow_mut();
+                        env_borrow_mut.local.borrow_mut().insert(s1.clone(), data);
+                    } else {
+                        return Err("symbol is not defined");
+                    }
+                }
+            }
+            AST::Children(ref v) => {
+                debug!("children: {:?}", v);
+
+                let data_option = eval(Some(a2.clone()), env.clone());
+                if let Ok(Some(DataType::Lambda(ref p))) = data_option {
+                    let env_borrow_mut = env.borrow_mut();
+                    env_borrow_mut.local.borrow_mut().insert(s1.clone(), DataType::Lambda(p.clone()));
+                } else if let Ok(Some(DataType::List(ref v))) = data_option {
+                    let env_borrow_mut = env.borrow_mut();
+                    env_borrow_mut.local.borrow_mut().insert(s1.clone(), DataType::List(v.clone()));
+                } else if let Err(e) = data_option {
+                    return Err(e);
+                }
+            }
+        }
+        return Ok(None);
+    }
+    return Err("wrong syntax for define expression");
+}
+
+fn eval_s0_lambda_symbol(s1: Option<&AST>, s2: Option<&AST>, _: Option<AST>, env: Rc<RefCell<Env>>) -> Result<Option<DataType>, &'static str> {
+
+    debug!("lambda-expression");
+    if let (Some(&AST::Children(ref args)), Some(&AST::Children(ref body))) = (s1, s2) {
+        debug!("ENV: {:?}", env);
+        debug!("args: {:?}", args);
+        debug!("body: {:?}", body);
+
+        // convert args AST to Datatype symbol
+        let args_result: Result<Vec<_>, _> = args.iter().map(|ref arg|
+            match arg {
+                &&AST::Symbol(ref arg_string) => Ok(DataType::Symbol(arg_string.to_string())),
+                _ => Err("lambda argument must be a symbol")
+            }
+        ).collect();
+
+        if let Result::Err(ref e) = args_result { return Err(e); }
+
+        let args_meta = args_result.unwrap().iter()
+            .map(|ref mut x| x.clone())
+            .collect::<Vec<DataType>>();
+
+        let local = RefCell::new(HashMap::new());
+        let parent_env_box = Box::new(env.clone());
+        let procedure_env = Env {
+            local,
+            parent: Some(parent_env_box)
+        };
+
+        debug!("procedure_env: {:?}", procedure_env);
+        let procedure = Procedure {
+            body: AST::Children(body.clone()),
+            params: args_meta,
+            env: Rc::new(RefCell::new(procedure_env))
+        };
+        debug!("procedure: {:?}", procedure);
+
+        Ok(Some(DataType::Lambda(procedure)))
+    } else {
+        Err("syntax error")
+    }
+}
+
 
 fn prepare_arguments(arguments: &[AST], env: Rc<RefCell<Env>>) -> Result<Vec<DataType>, &'static str> {
     let args_result: Result<Vec<_>, _> = arguments.iter()
