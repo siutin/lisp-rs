@@ -1056,9 +1056,18 @@ pub fn setup() -> HashMap<String, DataType> {
         }
 
         if let (Some(x), Some(y)) = (vec.get(0), vec.get(1)) {
-            Ok(Some(DataType::Pair(
-                (Box::new(x.clone()), Box::new(y.clone()))
-            )))
+            match y {
+                &DataType::List(ref l) => {
+                    let mut result :Vec<DataType> = vec![(*x).clone()];
+                    result.extend(l.iter().map(|item| item.clone()));
+                    Ok(Some(DataType::List(result)))
+                },
+                _ => {
+                    Ok(Some(DataType::Pair(
+                        (Box::new(x.clone()), Box::new(y.clone()))
+                    )))
+                }
+            }
         } else {
             return Err("cons function unknown error")
         }
