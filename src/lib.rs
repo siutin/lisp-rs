@@ -1022,7 +1022,8 @@ pub fn setup() -> HashMap<String, DataType> {
                     Err("car function requires a non-empty list")
                 }
             }
-            _ => Err("car function requires an argument of type 'list'")
+            &DataType::Pair(ref p) => Ok(Some(*(p.0).clone())),
+            _ => Err("car function requires an argument of type 'list' / 'pair'")
         }
     }))));
 
@@ -1042,8 +1043,9 @@ pub fn setup() -> HashMap<String, DataType> {
                 } else {
                     Err("cdr function requires a non-empty list")
                 }
-            }
-            _ => Err("cdr function requires an argument of type 'list'")
+            },
+            &DataType::Pair(ref p) => Ok(Some(*(p.1).clone())),
+            _ => Err("cdr function requires an argument of type 'list'/ 'pair'")
         }
     }))));
 
