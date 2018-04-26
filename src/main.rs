@@ -16,12 +16,6 @@ use scheme_rs::*;
 
 fn main() {
     env_logger::init().unwrap();
-    let local = RefCell::new(scheme_rs::setup());
-    let env = scheme_rs::Env {
-        local,
-        parent: None
-    };
-    debug!("Env: {:?}", env);
 
     let args: Vec<String> = env::args().collect();
     debug!("args: {:?}", args);
@@ -35,7 +29,7 @@ fn main() {
             let mut f = File::open(path).expect("Error: file not found");
             let mut code = String::new();
             f.read_to_string(&mut code).expect("Error: cannot read the file.");
-            execute(Rc::new(RefCell::new(env)), code);
+            execute(code);
         } else {
             println!("Error: file not found.");
         }
@@ -44,12 +38,21 @@ fn main() {
     }
 }
 
-fn execute(env: Rc<RefCell<Env>>, input: String) {
+fn execute(input: String) {
     io::stdout().flush().expect("cannot flush screen");
-    match parse(input.as_str()).and_then(|ast| eval(Some(ast.result), env.clone())) {
+
+    let local = RefCell::new(scheme_rs::setup());
+    let env = scheme_rs::Env {
+        local,
+        parent: None
+    };
+    debug!("Env: {:?}", env);
+    let rc_env = Rc::new(RefCell::new(env));
+
+    match parse(input.as_str()).and_then(|ast| eval(Some(ast.result), rc_env.clone())) {
         Ok(Some(d)) => println!("{:?}", d),
         Ok(None) => {}
         Err(e) => println!("error: {}", e)
     }
-    debug!("ENV: {:?}", &env);
+    debug!("ENV: {:?}", &rc_env);
 }
