@@ -34,6 +34,7 @@ fn main() {
     tuplet!((_program_name_option, arg_1st_option, *_rest) = args_ref);
 
     match arg_1st_option {
+        Some(&"-h") | Some(&"-H") | Some(&"--help") => display_help(),
         Some(path_input) => {
             let path = Path::new(path_input);
             debug!("{:?} exist? {} is file? {}", path, path.exists(), path.is_file());
@@ -47,7 +48,7 @@ fn main() {
                 println!("Error: file not found.");
             }
         }
-        _ => println!("Usage: scheme-rs [scheme_file]")
+        _ => display_help()
     }
 }
 
@@ -68,4 +69,8 @@ fn execute(input: String) {
         Err(e) => println!("error: {}", e)
     }
     debug!("ENV: {:?}", &rc_env);
+}
+
+fn display_help() {
+    println!("Usage: scheme-rs [scheme_file]");
 }
