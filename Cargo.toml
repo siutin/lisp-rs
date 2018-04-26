@@ -12,7 +12,7 @@ name = "cli"
 path = "src/cli.rs"
 
 [[bin]]
-name = "main"
+name = "scheme"
 path = "src/main.rs"
 
 
