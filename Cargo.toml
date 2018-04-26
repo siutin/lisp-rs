@@ -8,8 +8,13 @@ log = "0.3"
 env_logger = "0.4.3"
 
 [[bin]]
+name = "cli"
+path = "src/cli.rs"
+
+[[bin]]
 name = "main"
 path = "src/main.rs"
+
 
 [[bench]]
 name = "bench"
