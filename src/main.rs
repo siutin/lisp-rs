@@ -20,21 +20,34 @@ fn main() {
     let args: Vec<String> = env::args().collect();
     debug!("args: {:?}", args);
 
-    tuplet!((_program_name_option, path_option, *_rest) = args);
-    if let Some(path_input) = path_option {
-        let path = Path::new(path_input);
-        debug!("{:?} exist? {} is file? {}", path, path.exists(), path.is_file());
+    // Convert arguments from Vec<String> to Vec<&String>. References:
+    // 1) https://stackoverflow.com/questions/48034119/rust-matching-a-optionstring
+    // 2) https://stackoverflow.com/questions/31233938/converting-from-optionstring-to-optionstr
+    // make vector <T> to option<T> so we can then call #as_ref for all elements
+    let args_options = env::args().map(|x| Some(x)).collect::<Vec<Option<String>>>();
+    let args_ref = args_options.iter().map(|x| x.as_ref().map(|s| s.as_str())) // convert option<T> to option<&T>
+        .flat_map(|x| x) // convert option<T> to T
+        .collect::<Vec<&str>>();
 
-        if path.exists() && path.is_file() {
-            let mut f = File::open(path).expect("Error: file not found");
-            let mut code = String::new();
-            f.read_to_string(&mut code).expect("Error: cannot read the file.");
-            execute(code);
-        } else {
-            println!("Error: file not found.");
+    debug!("args_ref: {:?}", args_ref);
+
+    tuplet!((_program_name_option, arg_1st_option, *_rest) = args_ref);
+
+    match arg_1st_option {
+        Some(path_input) => {
+            let path = Path::new(path_input);
+            debug!("{:?} exist? {} is file? {}", path, path.exists(), path.is_file());
+
+            if path.exists() && path.is_file() {
+                let mut f = File::open(path).expect("Error: file not found");
+                let mut code = String::new();
+                f.read_to_string(&mut code).expect("Error: cannot read the file.");
+                execute(code);
+            } else {
+                println!("Error: file not found.");
+            }
         }
-    } else {
-        println!("Usage: scheme-rs [scheme_file]");
+        _ => println!("Usage: scheme-rs [scheme_file]")
     }
 }
 
