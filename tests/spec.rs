@@ -645,7 +645,7 @@ struct TestResult {
 }
 
 fn default_env() -> Rc<RefCell<Env>> {
-    let local = RefCell::new(setup());
+    let local = Box::new(RefCell::new(setup()));
     let env = Env {
         local,
         parent: None

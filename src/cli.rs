@@ -12,7 +12,7 @@ use scheme_rs::*;
 
 fn main() {
     env_logger::init().unwrap();
-    let local = RefCell::new(setup());
+    let local = Box::new(RefCell::new(setup()));
     let env = Env {
         local,
         parent: None

@@ -157,7 +157,7 @@ pub enum DataType {
 #[derive(Clone)]
 #[derive(PartialEq)]
 pub struct Env {
-    pub local: RefCell<HashMap<String, DataType>>,
+    pub local: Box<RefCell<HashMap<String, DataType>>>,
     pub parent: Option<Box<Rc<RefCell<Env>>>>
 }
 
@@ -451,7 +451,7 @@ pub fn eval(ast_option: Option<AST>, env: Rc<RefCell<Env>>) -> Result<Option<Dat
                                 .map(|ref mut x| x.clone())
                                 .collect::<Vec<DataType>>();
 
-                            let local = RefCell::new(HashMap::new());
+                            let local = Box::new(RefCell::new(HashMap::new()));
                             let parent_env_box = Box::new(env.clone());
                             let procedure_env = Env {
                                 local,

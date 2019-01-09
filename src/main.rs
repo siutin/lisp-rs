@@ -55,7 +55,7 @@ fn main() {
 fn execute(input: String) {
     io::stdout().flush().expect("cannot flush screen");
 
-    let local = RefCell::new(scheme_rs::setup());
+    let local = Box::new(RefCell::new(scheme_rs::setup()));
     let env = scheme_rs::Env {
         local,
         parent: None
