@@ -3,6 +3,9 @@ extern crate log;
 extern crate env_logger;
 extern crate ramp;
 
+extern crate strum;
+#[macro_use] extern crate strum_macros;
+
 //use std;
 use std::collections::HashMap;
 use std::cell::RefCell;
@@ -127,8 +130,10 @@ impl std::cmp::PartialEq for Function {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 #[derive(PartialEq)]
+#[derive(EnumDiscriminants)]
+#[derive(Debug)]
 pub enum DataType {
     Bool(bool),
     Pair((Box<DataType>, Box<DataType>)),
@@ -611,8 +616,8 @@ pub fn setup() -> HashMap<String, DataType> {
 
     map.insert("+".to_string(), DataType::Proc(Function(Rc::new(|vec: Vec<DataType>, _: Rc<RefCell<Env>>| {
         debug!("Function - name: {:?} - Args: {:?}", "+", vec);
-        let is_numbers = vec.iter().all(|&ref x| if let &DataType::Number(_) = x { true } else { false });
-        if !is_numbers {
+
+        if !vec.is_empty() && !vec.iter().all(|&ref x| DataTypeDiscriminants::from(x) == DataTypeDiscriminants::Number) { // check if all arguments are number type
             return Err("wrong argument datatype");
         }
 
@@ -629,10 +634,9 @@ pub fn setup() -> HashMap<String, DataType> {
     }))));
 
     map.insert("-".to_string(), DataType::Proc(Function(Rc::new(|vec: Vec<DataType>, _: Rc<RefCell<Env>>| {
-        debug!("Function - name: {:?} - Args: {:?}", "+", vec);
-        let is_numbers = vec.iter().all(|&ref x| if let &DataType::Number(_) = x { true } else { false });
+        debug!("Function - name: {:?} - Args: {:?}", "-", vec);
 
-        if !is_numbers {
+        if !vec.is_empty() && !vec.iter().all(|&ref x| DataTypeDiscriminants::from(x) == DataTypeDiscriminants::Number) { // check if all arguments are number type
             return Err("wrong argument datatype");
         }
 
@@ -657,8 +661,8 @@ pub fn setup() -> HashMap<String, DataType> {
     map.insert("*".to_string(), DataType::Proc(
         Function(Rc::new(|vec: Vec<DataType>, _: Rc<RefCell<Env>>| {
             debug!("Function - name: {:?} - Args: {:?}", "*", vec);
-            let is_numbers = vec.iter().all(|&ref x| if let &DataType::Number(_) = x { true } else { false });
-            if !is_numbers {
+
+            if !vec.iter().all(|&ref x| DataTypeDiscriminants::from(x) == DataTypeDiscriminants::Number) { // check if all arguments are number type
                 return Err("wrong argument datatype");
             }
 
@@ -677,9 +681,8 @@ pub fn setup() -> HashMap<String, DataType> {
 
     map.insert("/".to_string(), DataType::Proc(Function(Rc::new(|vec: Vec<DataType>, _: Rc<RefCell<Env>>| {
         debug!("Function - name: {:?} - Args: {:?}", "/", vec);
-        let is_numbers = vec.iter().all(|&ref x| if let &DataType::Number(_) = x { true } else { false });
 
-        if !is_numbers {
+        if !vec.iter().all(|&ref x| DataTypeDiscriminants::from(x) == DataTypeDiscriminants::Number) { // check if all arguments are number type
             return Err("wrong argument datatype");
         }
 

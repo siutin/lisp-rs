@@ -8,6 +8,8 @@ log = "0.3"
 env_logger = "0.4.3"
 ramp = "0.5.1"
 num-traits = "0.2"
+strum = "0.13.0"
+strum_macros = "0.13.0"
 
 [[bin]]
 name = "cli"
