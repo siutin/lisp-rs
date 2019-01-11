@@ -353,11 +353,11 @@ pub fn eval(ast_option: Option<AST>, env: Rc<RefCell<Env>>) -> Result<Option<Dat
                     "if" => {
                         debug!("if-expression");
                         if let (Some(&ref cond), Some(&ref conseq), Some(&ref alt)) = (s1, s2, s3) {
-                            match eval(Some(cond.clone()), env.clone()) {
+                            match eval(Some(cond.clone()), Rc::clone(&env)) {
                                 Ok(Some(DataType::Bool(b))) => {
                                     match b {
-                                        true => eval(Some(conseq.clone()), env.clone()),
-                                        false => eval(Some(alt.clone()), env.clone())
+                                        true => eval(Some(conseq.clone()), Rc::clone(&env)),
+                                        false => eval(Some(alt.clone()), Rc::clone(&env))
                                     }
                                 }
                                 Ok(_) => { return Err("syntax error"); }
@@ -406,7 +406,7 @@ pub fn eval(ast_option: Option<AST>, env: Rc<RefCell<Env>>) -> Result<Option<Dat
                                 AST::Children(ref v) => {
                                     debug!("children: {:?}", v);
 
-                                    let data_option = eval(Some(a2.clone()), env.clone());
+                                    let data_option = eval(Some(a2.clone()), Rc::clone(&env));
                                     if let Ok(Some(DataType::Lambda(ref p))) = data_option {
                                         let env_borrow_mut = env.borrow_mut();
                                         env_borrow_mut.local.borrow_mut().insert(s1.clone(), DataType::Lambda(p.clone()));
@@ -444,7 +444,7 @@ pub fn eval(ast_option: Option<AST>, env: Rc<RefCell<Env>>) -> Result<Option<Dat
                                 .collect::<Vec<DataType>>();
 
                             let local = Box::new(RefCell::new(HashMap::new()));
-                            let parent_env_box = Box::new(env.clone());
+                            let parent_env_box = Box::new(Rc::clone(&env));
                             let procedure_env = Env {
                                 local,
                                 parent: Some(parent_env_box)
@@ -483,7 +483,7 @@ pub fn eval(ast_option: Option<AST>, env: Rc<RefCell<Env>>) -> Result<Option<Dat
                             Some(DataType::Lambda(ref mut p)) => {
                                 debug!("first elm symbol - lambda: {:?}", p);
                                 let slice = &list[1..list.len()];
-                                match prepare_arguments(slice, env.clone()) {
+                                match prepare_arguments(slice, Rc::clone(&env)) {
                                     Ok(args) => {
                                         debug!("first elm symbol - procedure params: {:?}", p.params);
                                         let procedure_local = p.env.borrow_mut().local.clone();
@@ -519,7 +519,7 @@ pub fn eval(ast_option: Option<AST>, env: Rc<RefCell<Env>>) -> Result<Option<Dat
                 tuplet!((s0_option,*rest_option) = list);
 
                 if let Some(&AST::Children(_)) = s0_option {
-                    match eval(Some(list.first().unwrap().clone()), env.clone()) {
+                    match eval(Some(list.first().unwrap().clone()), Rc::clone(&env)) {
                         Ok(Some(DataType::Proc(ref f))) => {
                             debug!("first elm function - function: {:?}", f);
                             match rest_option {
@@ -531,7 +531,7 @@ pub fn eval(ast_option: Option<AST>, env: Rc<RefCell<Env>>) -> Result<Option<Dat
                             debug!("first elm lambda - lambda: {:?} - procedure params: {:?}", p, p.params);
                             let proc_env = match rest_option {
                                 Some(rest) => {
-                                    match prepare_arguments(rest, env.clone()) {
+                                    match prepare_arguments(rest, Rc::clone(&env)) {
                                         Ok(args) => {
                                             let p_env_borrow_mut = p.env.borrow_mut();
                                             for (name_ref, value_ref) in p.params.iter().zip(args.into_iter()) {
@@ -584,7 +584,7 @@ pub fn eval(ast_option: Option<AST>, env: Rc<RefCell<Env>>) -> Result<Option<Dat
 
 fn prepare_arguments(arguments: &[AST], env: Rc<RefCell<Env>>) -> Result<Vec<DataType>, &'static str> {
     let args_result: Result<Vec<_>, _> = arguments.iter()
-        .map(|x| eval(Some(x.clone()), env.clone()))
+        .map(|x| eval(Some(x.clone()), Rc::clone(&env)))
         .collect();
     debug!("args: {:?}", args_result);
     if let Result::Err(ref e) = args_result { return Err(e); }
@@ -597,9 +597,9 @@ fn prepare_arguments(arguments: &[AST], env: Rc<RefCell<Env>>) -> Result<Vec<Dat
 }
 
 fn execute(f: &Function, arguments: &[AST], env: Rc<RefCell<Env>>) -> Result<Option<DataType>, &'static str> {
-    match prepare_arguments(arguments, env.clone()) {
+    match prepare_arguments(arguments, Rc::clone(&env)) {
         Ok(args) => {
-            f.call(args, env.clone()).and_then(|r| {
+            f.call(args, Rc::clone(&env)).and_then(|r| {
                 match r {
                     Some(data) => Ok(Some(data)),
                     None => Ok(None)
@@ -855,7 +855,7 @@ pub fn setup() -> HashMap<String, DataType> {
         if let Some(&DataType::List(ref args)) = s1 {
             match s0 {
                 Some(&DataType::Proc(ref f)) => {
-                    f.call(args.clone(), env.clone()).and_then(|r| {
+                    f.call(args.clone(), Rc::clone(&env)).and_then(|r| {
                         match r {
                             Some(data) => Ok(Some(data)),
                             None => Ok(None)
@@ -1020,7 +1020,7 @@ pub fn setup() -> HashMap<String, DataType> {
             match d {
                 &DataType::Proc(ref f) => {
                     let list = l.iter()
-                        .map(|item| f.call(vec![item.clone()], env.clone()))
+                        .map(|item| f.call(vec![item.clone()], Rc::clone(&env)))
                         .flat_map(|x| x.ok())
                         .filter(|x| x.is_some())
                         .flat_map(|x| x)
