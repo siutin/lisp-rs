@@ -1219,7 +1219,16 @@ fn datatype2str(value: &DataType) -> String {
     match value {
         &DataType::Bool(b) => format!("{}", b),
         &DataType::Pair(ref p) => format!("({:?} . {:?})", p.0, p.1),
-        &DataType::Number(ref f) => format!("{:?}", f),
+        &DataType::Number(ref r) => {
+            let mut r_clone = r.clone();
+            r_clone.normalize();
+            let (n, d) = r_clone.clone().into_parts();
+            if d == ramp::int::Int::one() {
+                format!("{:?}", n)
+            } else {
+                format!("{:?}", r_clone)
+            }
+        },
         &DataType::Symbol(ref s) => format!("'{}", s),
         &DataType::String(ref s) => format!("\"{}\"", s),
         &DataType::Proc(ref p) => format!("{:?}", p),
