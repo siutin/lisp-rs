@@ -6,6 +6,7 @@ authors = ["osiutino <osiutino@gmail.com>"]
 [dependencies]
 log = "0.3"
 env_logger = "0.4.3"
+ramp = "0.5.1"
 
 [[bin]]
 name = "cli"
