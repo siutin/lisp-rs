@@ -114,10 +114,6 @@ impl InPort {
 
 		let re = Regex::new(r#"\s*(,@|[('`,)]|"(?:[\\].|[^\\"])*"|;.*|[^\s('"`,;)]*)(.*)"#).unwrap();
 
-		if self.line.is_empty() {
-			return None
-		}
-
 		while !self.line.is_empty() {
 			let t = self.line.clone();
 			let caps_option = re.captures(&t);
