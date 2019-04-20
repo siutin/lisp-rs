@@ -60,7 +60,13 @@ fn atom(token: &str) -> AST {
 	let to_int = token.parse::<i64>();
 	let to_float = token.parse::<f64>();
 
-	if to_int.is_ok() {
+	let re = Regex::new(r#"^"(.+)?"$"#).unwrap();
+
+	debug!("atom token = {:?}", token);
+	if let Some(caps) = re.captures(&token) {
+		debug!("detect string = {:?}", caps);
+		AST::String(caps.get(1).map_or("", |m| m.as_str()).to_string())
+	} else if to_int.is_ok() {
 		AST::Integer(to_int.unwrap_or_default())
 	} else if to_float.is_ok() {
 		AST::Float(to_float.unwrap_or_default())
@@ -82,6 +88,7 @@ pub struct ReadFromTokenResult {
 pub enum AST {
 	Integer(i64),
 	Float(f64),
+	String(String),
 	Symbol(String),
 	Children(Vec<AST>)
 }
