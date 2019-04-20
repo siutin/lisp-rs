@@ -1,3 +1,6 @@
+#[macro_use]
+extern crate log;
+extern crate env_logger;
 extern crate regex;
 
 use regex::Regex;
@@ -6,6 +9,7 @@ fn main () {
 	let text = r#"(begin (+ 1 2 (+ 3 4 5) 6))"#;
 	println!("text = {:?}", text);
 
+	env_logger::init().unwrap();
 	let mut o = InPort::new(text);
 	println!("read o: {:?}", read(&mut o))
 }
