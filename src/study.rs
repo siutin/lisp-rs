@@ -50,7 +50,6 @@ fn read_ahead(in_port: &mut InPort, token: String) -> Result<Option<AST>, &'stat
 	}
 }
 
-
 fn atom(token: &str) -> AST {
 	let to_int = token.parse::<i64>();
 	let to_float = token.parse::<f64>();
@@ -70,13 +69,6 @@ fn atom(token: &str) -> AST {
 	}
 }
 
-#[derive(Debug)]
-#[derive(PartialEq)]
-pub struct ReadFromTokenResult {
-	pub remain: Vec<String>,
-	pub result: AST
-}
-
 #[derive(Clone)]
 #[derive(Debug)]
 #[derive(PartialEq)]
@@ -87,7 +79,6 @@ pub enum AST {
 	Symbol(String),
 	Children(Vec<AST>)
 }
-
 
 struct InPort {
 	token: Option<String>,
