@@ -18,9 +18,8 @@ fn read(in_port: &mut InPort) -> Result<Option<AST>, &'static str> {
 
 	let token1 = in_port.next_token();
 	match token1 {
-		Ok(Some(s)) => read_ahead(in_port, s),
-		Ok(None) => Ok(None),
-		_ =>Err("EOF")
+		Some(s) => read_ahead(in_port, s),
+		None => Ok(None),
 	}
 }
 
@@ -29,19 +28,18 @@ fn read_ahead(in_port: &mut InPort, token: String) -> Result<Option<AST>, &'stat
 		let mut L = vec![];
 		loop {
 			match in_port.next_token() {
-				Ok(Some(s1)) => {
-					if s1 == ")" {
+				Some(s) => {
+					if s == ")" {
 						return Ok(Some(AST::Children(L)))
 					} else {
-						match read_ahead( in_port, s1) {
+						match read_ahead( in_port, s) {
 							Ok(Some(ast)) => L.push(ast),
 							Ok(None) => {},
 							_ => { return Err("EOF") }
 						}
 					}
 				}
-				Ok(None) => {},
-				_ => { return Err("EOF") }
+				None => {},
 			}
 		}
 		unreachable!();
@@ -100,12 +98,12 @@ impl InPort {
 		self.token.clone()
 	}
 
-	fn next_token(&mut self) -> Result<Option<String>, &'static str> {
+	fn next_token(&mut self) -> Option<String> {
 
 		let re = Regex::new(r#"\s*(,@|[('`,)]|"(?:[\\].|[^\\"])*"|;.*|[^\s('"`,;)]*)(.*)"#).unwrap();
 
 		if self.line.is_empty() {
-			return Err(&"empty line")
+			return None
 		}
 
 		while !self.line.is_empty() {
@@ -116,11 +114,12 @@ impl InPort {
 					let token = caps.get(1).map_or("", |m| m.as_str());
 					self.line = String::from(caps.get(2).map_or("", |m| m.as_str()));
 					self.token = Some(token.to_string());
-					return Ok(self.token.clone())
+					debug!("token = {:?}", token);
+					return self.token.clone()
 				},
 				None => {}
 			}
 		}
-		Ok(None)
+		None
 	}
 }
