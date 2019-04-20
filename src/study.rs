@@ -39,11 +39,11 @@ fn read_ahead(in_port: &mut InPort, token: String) -> Result<Option<AST>, &'stat
 				match read_ahead( in_port, s) {
 					Ok(Some(ast)) => L.push(ast),
 					Ok(None) => { debug!("read_ahead NONE") },
-					_ => { return Err("EOF") }
+					_ => { return Err("syntax error") }
 				}
 			}
 		}
-		return Ok(Some(AST::Children(L)))
+		Err("syntax error")
 	} else if token == ")" {
 		Err("unexpected )")
 	} else {
