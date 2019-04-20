@@ -45,10 +45,9 @@ fn read_ahead(in_port: &mut InPort, token: String) -> Result<Option<AST>, &'stat
 						}
 					}
 				}
-				None => {},
+				None => { return Ok(Some(AST::Children(L))) },
 			}
 		}
-		unreachable!();
 	} else if token == ")" {
 		Err("unexpected )")
 	} else {
