@@ -21,9 +21,8 @@ fn parse(text: &str) -> Result<Option<AST>, &'static str> {
 }
 
 fn read(in_port: &mut InPort) -> Result<Option<AST>, &'static str> {
-
-	let token1 = in_port.next_token();
-	match token1 {
+	let token = in_port.next_token();
+	match token {
 		Some(s) => read_ahead(in_port, s),
 		None => Ok(None),
 	}
