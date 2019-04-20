@@ -1,0 +1,17 @@
+#!/usr/bin/env run-cargo-script
+//! ```cargo
+//! [dependencies]
+//! regex = "1"
+//! ```
+
+extern crate regex;
+
+use regex::Regex;
+fn main () {
+	let text = "\"hello\"\"";
+	println!("text = {:?}", text);
+	let re = Regex::new(r#"\s*(,@|[('`,)]|"(?:[\\].|[^\\"])*"|;.*|[^\s('"`,;)]*)(.*)""#).unwrap();
+	for cap in re.captures_iter(text) {
+        println!("text: {:?}", cap);
+    }
+}

@@ -10,6 +10,7 @@ ramp = "0.5.1"
 num-traits = "0.2"
 strum = "0.13.0"
 strum_macros = "0.13.0"
+regex = "1"
 
 [[bin]]
 name = "cli"
@@ -19,6 +20,9 @@ path = "src/cli.rs"
 name = "scheme"
 path = "src/main.rs"
 
+[[bin]]
+name = "study"
+path = "src/study.rs"
 
 [[bench]]
 name = "bench"
