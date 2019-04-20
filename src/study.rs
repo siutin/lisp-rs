@@ -7,11 +7,78 @@ fn main () {
 	println!("text = {:?}", text);
 
 	let mut o = InPort::new(text);
-	match o.next_token() {
-		Ok(Some(s)) => println!("next token = {:?}", s),
-		_ => 	println!("no more next token")
+	println!("read o: {:?}", read(&mut o))
+}
+
+fn read(in_port: &mut InPort) -> Result<Option<AST>, &'static str> {
+
+	let token1 = in_port.next_token();
+	match token1 {
+		Ok(Some(s)) => read_ahead(in_port, s),
+		Ok(None) => Ok(None),
+		_ =>Err("EOF")
 	}
 }
+
+fn read_ahead(in_port: &mut InPort, token: String) -> Result<Option<AST>, &'static str> {
+	if token == "(" {
+		let mut L = vec![];
+		loop {
+			match in_port.next_token() {
+				Ok(Some(s1)) => {
+					if s1 == ")" {
+						return Ok(Some(AST::Children(L)))
+					} else {
+						match read_ahead( in_port, s1) {
+							Ok(Some(ast)) => L.push(ast),
+							Ok(None) => {},
+							_ => { return Err("EOF") }
+						}
+					}
+				}
+				Ok(None) => {},
+				_ => { return Err("EOF") }
+			}
+		}
+		unreachable!();
+	} else if token == ")" {
+		Err("unexpected )")
+	} else {
+		Ok(Some(atom(&token)))
+	}
+}
+
+
+fn atom(token: &str) -> AST {
+	let to_int = token.parse::<i64>();
+	let to_float = token.parse::<f64>();
+
+	if to_int.is_ok() {
+		AST::Integer(to_int.unwrap_or_default())
+	} else if to_float.is_ok() {
+		AST::Float(to_float.unwrap_or_default())
+	} else {
+		AST::Symbol(token.to_string())
+	}
+}
+
+#[derive(Debug)]
+#[derive(PartialEq)]
+pub struct ReadFromTokenResult {
+	pub remain: Vec<String>,
+	pub result: AST
+}
+
+#[derive(Clone)]
+#[derive(Debug)]
+#[derive(PartialEq)]
+pub enum AST {
+	Integer(i64),
+	Float(f64),
+	Symbol(String),
+	Children(Vec<AST>)
+}
+
 
 struct InPort {
 	token: Option<String>,
