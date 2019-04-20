@@ -32,22 +32,18 @@ fn read(in_port: &mut InPort) -> Result<Option<AST>, &'static str> {
 fn read_ahead(in_port: &mut InPort, token: String) -> Result<Option<AST>, &'static str> {
 	if token == "(" {
 		let mut L = vec![];
-		loop {
-			match in_port.next_token() {
-				Some(s) => {
-					if s == ")" {
-						return Ok(Some(AST::Children(L)))
-					} else {
-						match read_ahead( in_port, s) {
-							Ok(Some(ast)) => L.push(ast),
-							Ok(None) => {},
-							_ => { return Err("EOF") }
-						}
-					}
+		while let Some(s) = in_port.next_token() {
+			if s == ")" {
+				return Ok(Some(AST::Children(L)))
+			} else {
+				match read_ahead( in_port, s) {
+					Ok(Some(ast)) => L.push(ast),
+					Ok(None) => { debug!("read_ahead NONE") },
+					_ => { return Err("EOF") }
 				}
-				None => { return Ok(Some(AST::Children(L))) },
 			}
 		}
+		return Ok(Some(AST::Children(L)))
 	} else if token == ")" {
 		Err("unexpected )")
 	} else {
