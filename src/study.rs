@@ -6,12 +6,18 @@ extern crate regex;
 use regex::Regex;
 use std::result::Result;
 fn main () {
-	let text = r#"(begin (+ 1 2 (+ 3 4 5) 6))"#;
-	println!("text = {:?}", text);
 
 	env_logger::init().unwrap();
+//	parse(r#"(begin (+ 1 2 (+ 3 4 5) 6))"#);
+	parse(r#"(begin (print "hello world"))"#);
+}
+
+fn parse(text: &str) -> Result<Option<AST>, &'static str> {
+	debug!("text = {:?}", text);
 	let mut o = InPort::new(text);
-	println!("read o: {:?}", read(&mut o))
+	let result =  read(&mut o);
+	debug!("parse result: {:?}", result);
+	result
 }
 
 fn read(in_port: &mut InPort) -> Result<Option<AST>, &'static str> {
