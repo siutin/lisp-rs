@@ -63,7 +63,7 @@ fn execute(input: String) {
     debug!("Env: {:?}", env);
     let rc_env = Rc::new(RefCell::new(env));
 
-    match parse(input.as_str()).and_then(|ast| eval(Some(ast.result), Rc::clone(&rc_env))) {
+    match parse(input.as_str()).and_then(|ast| eval(Some(ast), Rc::clone(&rc_env))) {
         Ok(Some(d)) => println!("{:?}", d),
         Ok(None) => {}
         Err(e) => println!("error: {}", e)

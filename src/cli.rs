@@ -29,7 +29,7 @@ fn repl(env: Rc<RefCell<Env>>) {
         io::stdout().flush().expect("cannot flush screen");
         let mut input = String::new();
         io::stdin().read_line(&mut input).expect("cannot read input");
-        match parse(input.as_str()).and_then(|ast| eval(Some(ast.result), env.clone())) {
+        match parse(input.as_str()).and_then(|ast| eval(ast, env.clone())) {
             Ok(Some(d)) => println!("{:?}", d),
             Ok(None) => {}
             Err(e) => println!("error: {}", e)

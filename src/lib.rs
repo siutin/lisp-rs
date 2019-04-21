@@ -2,6 +2,7 @@
 extern crate log;
 extern crate env_logger;
 extern crate ramp;
+extern crate regex;
 
 extern crate strum;
 #[macro_use] extern crate strum_macros;
@@ -13,6 +14,9 @@ use std::rc::Rc;
 use std::fmt;
 
 use ramp::rational::Rational;
+
+use regex::Regex;
+use std::result::Result;
 
 #[macro_export]
 macro_rules! tuplet {
@@ -70,6 +74,7 @@ macro_rules! define_comparison {
 pub enum AST {
     Integer(i64),
     Float(f64),
+    String(String),
     Symbol(String),
     Children(Vec<AST>)
 }
@@ -177,108 +182,97 @@ impl Env {
     }
 }
 
-pub fn parse(program: &str) -> Result<ReadFromTokenResult, &'static str> {
+pub fn parse(program: &str) -> Result<Option<AST>, &'static str> {
+
     debug!("program: {}", program);
     let wrap_program = format!("(begin {})", program);
 
-    let tokens = tokenize(&wrap_program);
-    debug!("tokens: {:?}", tokens);
-    let ast = read_from_tokens(tokens.clone());
-    debug!("ast: {:?}", ast);
-    return ast;
+    let mut o = InPort::new(program);
+    let result =  read(&mut o);
+    debug!("parse result: {:?}", result);
+    if let Ok(Some(ast)) = result {
+        debug!("ast: {:?}", ast);
+        return Ok(Some(ast))
+    }
+    return Ok(None)
 }
 
-fn tokenize(program: &str) -> Vec<String>
-{
-    let iterator = Box::new(program.chars());
-    let count = iterator.clone().count();
-    let vec = iterator.fold(Vec::with_capacity(count), |mut acc, x| {
-        if x == '(' || x == ')' {
-            acc.extend(vec![' ', x, ' '])
-        } else {
-            acc.push(x)
-        }
-        acc
-    });
-    let s: String = vec.into_iter().collect();
-    let ss: Vec<String> = s.split_whitespace().map(|x| x.to_string()).collect();
-    ss
+fn read(in_port: &mut InPort) -> Result<Option<AST>, &'static str> {
+    let token = in_port.next_token();
+    match token {
+        Some(s) => read_ahead(in_port, s),
+        None => Ok(None),
+    }
 }
 
-fn read_from_tokens(mut tokens: Vec<String>) -> Result<ReadFromTokenResult, &'static str> {
-    if tokens.len() > 0 {
-        let token = tokens.remove(0);
-
-        if token == "(" {
-            let mut vec: Vec<AST> = vec![];
-            let mut tmp_tokens = tokens.clone();
-
-            if tmp_tokens.is_empty() {
-                return Err("syntax error");
-            }
-
-            while !tmp_tokens.is_empty() {
-                if tmp_tokens.first().unwrap() == ")" {
-                    break
-                } else {
-                    let start_quote_option = match tmp_tokens.clone().first() {
-                        Some(first_word) => {
-                            if first_word.starts_with('\"') {
-                                debug!("detect a start quote of string");
-                                Some(tmp_tokens.clone())
-                            } else {
-                                None
-                            }
-                        }
-                        None => None
-                    };
-                    if let Some(rest_str) = start_quote_option {
-                        debug!("rest_str: {:?}", rest_str);
-                        match rest_str.iter().position(|string_tag| if string_tag.ends_with('\"') { true } else { false }) {
-                            Some(i) => {
-                                debug!("detect an end quote of string");
-                                let str_result = (rest_str[0..i + 1]).join(" ");
-                                let rest_tokens = (rest_str[i + 1..]).iter().map(|&ref x| x.to_string()).collect::<Vec<String>>();
-                                debug!("str_result: {:?}", str_result);
-                                debug!("rest_tokens: {:?}", rest_tokens);
-                                vec.push(AST::Symbol(str_result));
-                                tmp_tokens = rest_tokens.clone();
-                            }
-                            None => { return Err("can not find an end quote"); }
-                        }
-                    } else {
-                        match read_from_tokens(tmp_tokens.clone()) {
-                            Ok(data) => {
-                                vec.push(data.result);
-                                tmp_tokens = data.remain.clone();
-                            }
-                            Err(e) => { return Err(e); }
-                        }
-                    }
+fn read_ahead(in_port: &mut InPort, token: String) -> Result<Option<AST>, &'static str> {
+    if token == "(" {
+        let mut L = vec![];
+        while let Some(s) = in_port.next_token() {
+            if s == ")" {
+                return Ok(Some(AST::Children(L)))
+            } else {
+                match read_ahead( in_port, s) {
+                    Ok(Some(ast)) => L.push(ast),
+                    Ok(None) => { debug!("read_ahead NONE") },
+                    _ => { return Err("syntax error") }
                 }
             }
-            if tmp_tokens.is_empty() {
-                return Err("syntax error");
-            }
-            tmp_tokens.remove(0);
-            Ok(
-                ReadFromTokenResult {
-                    remain: tmp_tokens,
-                    result: AST::Children(vec)
-                }
-            )
-        } else if token == ")" {
-            Err("unexpected )")
-        } else {
-            Ok(
-                ReadFromTokenResult {
-                    remain: tokens,
-                    result: atom(&token)
-                }
-            )
         }
+        Err("syntax error")
+    } else if token == ")" {
+        Err("unexpected )")
+        //	} else if token.chars().next() == Some('\'') {
+        //		debug!("detect quote");
+        //		match read(in_port) {
+        //			Ok(Some(ast)) => return Ok(Some(AST::Quote(Box::new(ast)))),
+        //			Ok(None) => return Ok(Some(AST::Quote(Box::new(AST::Symbol("".to_string()))))),
+        //			Err(e) => {
+        //				debug!("e = {:?}", e);
+        //				return Err("EOF")
+        //			}
+        //			_=> { return Err("EOF") }
+        //		}
     } else {
-        Err("unexpected EOF while reading")
+        Ok(Some(atom(&token)))
+    }
+}
+
+struct InPort {
+    token: Option<String>,
+    line: String
+}
+
+impl InPort {
+    fn new (text: &str) -> InPort {
+        InPort {
+            token: None,
+            line: String::from(text)
+        }
+    }
+    fn token(&self) -> Option<String> {
+        self.token.clone()
+    }
+
+    fn next_token(&mut self) -> Option<String> {
+
+        let re = Regex::new(r#"\s*(,@|[('`,)]|"(?:[\\].|[^\\"])*"|;.*|[^\s('"`,;)]*)(.*)"#).unwrap();
+
+        while !self.line.is_empty() {
+            let t = self.line.clone();
+            let caps_option = re.captures(&t);
+            match caps_option {
+                Some(caps) => {
+                    let token = caps.get(1).map_or("", |m| m.as_str());
+                    self.line = String::from(caps.get(2).map_or("", |m| m.as_str()));
+                    self.token = Some(token.to_string());
+                    debug!("token = {:?}", token);
+                    return self.token.clone()
+                },
+                None => { debug!("unknown syntax") }
+            }
+        }
+        None
     }
 }
 
@@ -286,7 +280,13 @@ fn atom(token: &str) -> AST {
     let to_int = token.parse::<i64>();
     let to_float = token.parse::<f64>();
 
-    if to_int.is_ok() {
+    let re = Regex::new(r#"^"(.+)?"$"#).unwrap();
+
+    debug!("atom token = {:?}", token);
+    if let Some(caps) = re.captures(&token) {
+        debug!("detect string = {:?}", caps);
+        AST::String(caps.get(1).map_or("", |m| m.as_str()).to_string())
+    } else if to_int.is_ok() {
         AST::Integer(to_int.unwrap_or_default())
     } else if to_float.is_ok() {
         AST::Float(to_float.unwrap_or_default())
@@ -377,6 +377,10 @@ pub fn eval(ast_option: Option<AST>, env: Rc<RefCell<Env>>) -> Result<Option<Dat
                                 AST::Float(f) => {
                                     let env_borrow_mut = env.borrow_mut();
                                     env_borrow_mut.local.borrow_mut().insert(s1.clone(), DataType::Number(Rational::from(f)));
+                                }
+                                AST::String(ref s) => {
+                                    let env_borrow_mut = env.borrow_mut();
+                                    env_borrow_mut.local.borrow_mut().insert(s1.clone(), DataType::String(s.to_string()));
                                 }
                                 AST::Symbol(ref s) => {
                                     if s.len() > 1 && s.starts_with("#") {
@@ -574,6 +578,7 @@ pub fn eval(ast_option: Option<AST>, env: Rc<RefCell<Env>>) -> Result<Option<Dat
             let data = match ast_option {
                 Some(AST::Integer(i)) => Some(DataType::Number(Rational::from(i))),
                 Some(AST::Float(f)) => Some(DataType::Number(Rational::from(f))),
+                Some(AST::String(ref s)) => Some(DataType::String(s.to_string())),
                 Some(_) => unreachable!(),
                 None => None
             };
@@ -1247,6 +1252,9 @@ fn ast2datatype(value: &AST) -> Result<DataType, &'static str> {
             let children = children_result.unwrap().into_iter().collect::<Vec<DataType>>();
             Ok(DataType::List(children))
         }
+        &AST::String(ref s) => {
+            Ok(DataType::Symbol(s.to_string()))
+        }
         &AST::Symbol(ref s) => {
             if s.starts_with("#") {
                 if s.len() != 2 {
@@ -1260,8 +1268,6 @@ fn ast2datatype(value: &AST) -> Result<DataType, &'static str> {
                 } else {
                     Err("syntax error")
                 }
-            } else if s.starts_with("\"") && s.ends_with("\"") {
-                Ok(DataType::Symbol((&s[1..s.len() - 1]).to_string()))
             } else {
                 Ok(DataType::Symbol(s.clone()))
             }
