@@ -8,8 +8,11 @@ use std::result::Result;
 fn main () {
 
 	env_logger::init().unwrap();
-//	parse(r#"(begin (+ 1 2 (+ 3 4 5) 6))"#);
+	parse(r#"(begin (+ 1 2 (+ 3 4 5) 6))"#);
 	parse(r#"(begin (print "hello world"))"#);
+	parse(r#"(begin (print "hello world")"#);
+	parse(r#"(begin (print "hello "world"))"#);
+	parse(r#"(begin (print () "hello world"))"#);
 }
 
 fn parse(text: &str) -> Result<Option<AST>, &'static str> {
@@ -23,15 +26,17 @@ fn parse(text: &str) -> Result<Option<AST>, &'static str> {
 fn read(in_port: &mut InPort) -> Result<Option<AST>, &'static str> {
 	let token = in_port.next_token();
 	match token {
-		Some(s) => read_ahead(in_port, s),
-		None => Ok(None),
+		Ok(Some(s)) => read_ahead(in_port, s),
+		Ok(None) => Ok(None),
+		Err(e) => Err(e),
+		_ => Err("unknown status")
 	}
 }
 
 fn read_ahead(in_port: &mut InPort, token: String) -> Result<Option<AST>, &'static str> {
 	if token == "(" {
 		let mut L = vec![];
-		while let Some(s) = in_port.next_token() {
+		while let Ok(Some(s)) = in_port.next_token() {
 			if s == ")" {
 				return Ok(Some(AST::Children(L)))
 			} else {
@@ -96,7 +101,7 @@ impl InPort {
 		self.token.clone()
 	}
 
-	fn next_token(&mut self) -> Option<String> {
+	fn next_token(&mut self) -> Result<Option<String>, &'static str> {
 
 		let re = Regex::new(r#"\s*(,@|[('`,)]|"(?:[\\].|[^\\"])*"|;.*|[^\s('"`,;)]*)(.*)"#).unwrap();
 
@@ -105,15 +110,23 @@ impl InPort {
 			let caps_option = re.captures(&t);
 			match caps_option {
 				Some(caps) => {
-					let token = caps.get(1).map_or("", |m| m.as_str());
-					self.line = String::from(caps.get(2).map_or("", |m| m.as_str()));
-					self.token = Some(token.to_string());
-					debug!("token = {:?}", token);
-					return self.token.clone()
+					let token = caps.get(1).map_or("", |m| m.as_str()).to_string();
+					let line = String::from(caps.get(2).map_or("", |m| m.as_str()));
+
+					if token.is_empty() {
+						debug!("caps 1 = {:?} token = {:?}", caps.get(1), token);
+						return Err("syntax error");
+					}
+
+					self.token = Some(token.clone());
+					self.line = line.clone();
+
+					debug!("token = {:?} line = {:?}", token, line);
+					return Ok(self.token.clone())
 				},
-				None => {}
+				None => return Ok(None)
 			}
 		}
-		None
+		Ok(None)
 	}
 }
